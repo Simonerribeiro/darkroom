@@ -32,19 +32,37 @@ function requireAuth(req, res, next) {
   next();
 }
 
-router.post('/create', requireAuth, upload.single('video'), (req, res) => {
-  const { host_name, slug } = req.body;
-  const videoUrl = req.file ? req.file.path : null;
-  const videoPublicId = req.file ? req.file.filename : null;
-
+router.post('/create', requireAuth, (req, res, next) => {
+  upload.single('video')(req, res, (err) => {
+    if (err) {
+      console.error('Multer/Cloudinary error:', JSON.stringify(err));
+      return res.json({ success: false, error: 'Erro no upload: ' + (err.message || JSON.stringify(err)) });
+    }
+    next();
+  });
+}, (req, res) => {
   try {
+    const { host_name, slug } = req.body;
+
+    console.log('host_name:', host_name);
+    console.log('slug:', slug);
+    console.log('file:', req.file ? req.file.path : 'nenhum');
+    console.log('CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME ? 'ok' : 'FALTANDO');
+    console.log('API_KEY:', process.env.CLOUDINARY_API_KEY ? 'ok' : 'FALTANDO');
+    console.log('API_SECRET:', process.env.CLOUDINARY_API_SECRET ? 'ok' : 'FALTANDO');
+
+    const videoUrl = req.file ? req.file.path : null;
+    const videoPublicId = req.file ? req.file.filename : null;
+
     db.prepare(`
       INSERT INTO infinite_links (user_id, host_name, slug, video_url, video_public_id)
       VALUES (?, ?, ?, ?, ?)
     `).run(req.session.userId, host_name, slug, videoUrl, videoPublicId);
+
     res.json({ success: true });
   } catch (e) {
-    res.json({ success: false, error: 'Slug já existe' });
+    console.error('DB error:', e.message);
+    res.json({ success: false, error: e.message });
   }
 });
 
