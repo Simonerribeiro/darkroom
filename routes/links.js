@@ -18,14 +18,14 @@ const storage = new CloudinaryStorage({
     folder: 'darkroom/videos',
     resource_type: 'video',
     allowed_formats: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v'],
-    eager: [{ quality: 'auto' }],
+    eager: [{ quality: 'auto:good', fetch_format: 'mp4' }],
     eager_async: true
   }
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 100 * 1024 * 1024 }
+  limits: { fileSize: 500 * 1024 * 1024 }
 });
 
 function requireAuth(req, res, next) {
@@ -33,73 +33,122 @@ function requireAuth(req, res, next) {
   next();
 }
 
-router.post('/create', requireAuth, (req, res, next) => {
+// Criar modelo
+router.post('/model/create', requireAuth, (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.json({ success: false, error: 'Nome obrigatório' });
+  try {
+    const result = db.prepare(`
+      INSERT INTO models (user_id, name) VALUES (?, ?)
+    `).run(req.session.userId, name);
+    res.json({ success: true, id: result.lastInsertRowid });
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
+});
+
+// Editar modelo
+router.post('/model/edit/:id', requireAuth, (req, res) => {
+  const { name } = req.body;
+  try {
+    db.prepare('UPDATE models SET name = ? WHERE id = ? AND user_id = ?')
+      .run(name, req.params.id, req.session.userId);
+    res.json({ success: true });
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
+});
+
+// Deletar modelo
+router.delete('/model/delete/:id', requireAuth, (req, res) => {
+  try {
+    const callTypes = db.prepare('SELECT id FROM call_types WHERE model_id = ?').all(req.params.id);
+    callTypes.forEach(ct => {
+      db.prepare('DELETE FROM sessions_calls WHERE call_type_id = ?').run(ct.id);
+    });
+    db.prepare('DELETE FROM call_types WHERE model_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM models WHERE id = ? AND user_id = ?').run(req.params.id, req.session.userId);
+    res.json({ success: true });
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
+});
+
+// Criar tipo de chamada com vídeo
+router.post('/calltype/create', requireAuth, (req, res, next) => {
   upload.single('video')(req, res, (err) => {
     if (err) {
-      console.error('Multer/Cloudinary error:', JSON.stringify(err));
-      return res.json({ success: false, error: 'Erro no upload: ' + (err.message || JSON.stringify(err)) });
+      console.error('Upload error:', err.message);
+      return res.json({ success: false, error: 'Erro no upload: ' + err.message });
     }
     next();
   });
 }, (req, res) => {
   try {
-    const { host_name, slug } = req.body;
+    const { model_id, name } = req.body;
     const videoUrl = req.file ? req.file.path : null;
     const videoPublicId = req.file ? req.file.filename : null;
 
-    db.prepare(`
-      INSERT INTO infinite_links (user_id, host_name, slug, video_url, video_public_id)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(req.session.userId, host_name, slug, videoUrl, videoPublicId);
+    const result = db.prepare(`
+      INSERT INTO call_types (model_id, name, video_url, video_public_id)
+      VALUES (?, ?, ?, ?)
+    `).run(model_id, name, videoUrl, videoPublicId);
 
-    res.json({ success: true });
+    res.json({ success: true, id: result.lastInsertRowid });
   } catch (e) {
-    console.error('DB error:', e.message);
     res.json({ success: false, error: e.message });
   }
 });
 
-router.post('/toggle/:id', requireAuth, (req, res) => {
-  const link = db.prepare('SELECT * FROM infinite_links WHERE id = ?').get(req.params.id);
-  if (!link) return res.json({ success: false });
-  db.prepare('UPDATE infinite_links SET active = ? WHERE id = ?').run(link.active ? 0 : 1, req.params.id);
-  res.json({ success: true, active: !link.active });
-});
-
-router.post('/edit/:id', requireAuth, (req, res) => {
-  const { host_name } = req.body;
-  if (!host_name) return res.json({ success: false, error: 'Nome obrigatório' });
+// Editar tipo de chamada
+router.post('/calltype/edit/:id', requireAuth, (req, res, next) => {
+  upload.single('video')(req, res, (err) => {
+    if (err) return res.json({ success: false, error: err.message });
+    next();
+  });
+}, (req, res) => {
   try {
-    db.prepare('UPDATE infinite_links SET host_name = ? WHERE id = ? AND user_id = ?')
-      .run(host_name, req.params.id, req.session.userId);
+    const { name } = req.body;
+    if (req.file) {
+      db.prepare('UPDATE call_types SET name = ?, video_url = ?, video_public_id = ? WHERE id = ?')
+        .run(name, req.file.path, req.file.filename, req.params.id);
+    } else {
+      db.prepare('UPDATE call_types SET name = ? WHERE id = ?')
+        .run(name, req.params.id);
+    }
     res.json({ success: true });
   } catch (e) {
     res.json({ success: false, error: e.message });
   }
 });
 
-router.delete('/delete/:id', requireAuth, (req, res) => {
+// Deletar tipo de chamada
+router.delete('/calltype/delete/:id', requireAuth, (req, res) => {
   try {
-    db.prepare('DELETE FROM sessions_calls WHERE link_id = ?').run(req.params.id);
-    db.prepare('DELETE FROM infinite_links WHERE id = ? AND user_id = ?').run(req.params.id, req.session.userId);
+    db.prepare('DELETE FROM sessions_calls WHERE call_type_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM call_types WHERE id = ?').run(req.params.id);
     res.json({ success: true });
   } catch (e) {
     res.json({ success: false, error: e.message });
   }
 });
 
-router.post('/share/:id', requireAuth, (req, res) => {
-  const link = db.prepare('SELECT * FROM infinite_links WHERE id = ?').get(req.params.id);
-  if (!link || !link.active) return res.json({ success: false, error: 'Link inativo' });
+// Gerar link de compartilhamento
+router.post('/share/:callTypeId', requireAuth, (req, res) => {
+  const callType = db.prepare('SELECT * FROM call_types WHERE id = ? AND active = 1').get(req.params.callTypeId);
+  if (!callType) return res.json({ success: false, error: 'Tipo de chamada inativo ou não encontrado' });
 
   const token = uuidv4();
   db.prepare(`
-    INSERT INTO sessions_calls (link_id, session_token, status)
+    INSERT INTO sessions_calls (call_type_id, session_token, status)
     VALUES (?, ?, 'pending')
-  `).run(link.id, token);
+  `).run(callType.id, token);
 
+  const model = db.prepare('SELECT * FROM models WHERE id = ?').get(callType.model_id);
   const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
-  res.json({ success: true, url: `${baseUrl}/go/${link.slug}/${token}` });
+  const slug = `${model.id}-${callType.id}`;
+
+  res.json({ success: true, url: `${baseUrl}/go/${slug}/${token}`, token });
 });
 
 module.exports = router;
