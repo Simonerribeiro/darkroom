@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Darkroom — Dashboard</title>
+<link rel="stylesheet" href="/css/main.css">
+</head>
+<body class="app-body">
+
+<div class="topbar">
+  <div class="topbar-logo">dark<span>room</span></div>
+  <div class="topbar-right">
+    <span class="user-chip">👤 <%= userName %></span>
+    <a href="/logout" class="btn-ghost">Sair</a>
+  </div>
+</div>
+
+<div class="layout">
+  <aside class="sidebar">
+    <a href="/dashboard" class="sidebar-item active">∞ Links Infinitos</a>
+    <a href="/logout" class="sidebar-item">↩ Sair</a>
+  </aside>
+
+  <main class="content">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">∞ Link Infinito</h1>
+        <p class="page-sub">Visualize todas as conversas criadas através dos Links Infinitos</p>
+        <div class="page-meta">
+          <span><b><%= stats.activeLinks %></b> links ativos</span>
+          <span>•</span>
+          <span><b><%= stats.totalConvs %></b> conversas geradas</span>
+          <span>•</span>
+          <span><b><%= stats.activeConvs %></b> conversas ativas</span>
+        </div>
+      </div>
+      <button class="btn-orange" onclick="openNewLinkModal()">+ Novo Link Infinito</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Links Ativos</div>
+        <div class="stat-value orange"><%= stats.activeLinks %></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Conversas Geradas</div>
+        <div class="stat-value"><%= stats.totalConvs %></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Ao Vivo Agora</div>
+        <div class="stat-value green"><%= stats.activeConvs %></div>
+      </div>
+    </div>
+
+    <div class="links-list">
+      <% links.forEach(link => { %>
+      <div class="link-card" id="link-<%= link.id %>">
+        <div class="link-card-header" onclick="toggleSessions(<%= link.id %>)">
+          <div class="host-info">
+            <div class="avatar"><%= link.host_name.substring(0,2).toUpperCase() %></div>
+            <div>
+              <div class="host-name"><%= link.host_name %></div>
+              <div class="host-slug">
+                go/<%= link.slug %>
+                <span class="badge <%= link.active ? 'badge-active' : 'badge-inactive' %>">
+                  <%= link.active ? 'Ativo' : 'Inativo' %>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="link-actions">
+            <button class="btn-icon danger" onclick="event.stopPropagation();toggleLink(<%= link.id %>)">⏻</button>
+            <button class="btn-icon" onclick="event.stopPropagation();copyApi('<%= link.slug %>')">⎘ API</button>
+            <button class="btn-icon orange" onclick="event.stopPropagation();shareLink(<%= link.id %>)">🔗 Compartilhar</button>
+            <button class="btn-icon" onclick="event.stopPropagation();toggleSessions(<%= link.id %>)">Ver Detalhes ▾</button>
+          </div>
+        </div>
+        <div class="sessions-panel" id="sessions-<%= link.id %>" style="display:none">
+          <div class="sessions-loading">Carregando conversas...</div>
+        </div>
+      </div>
+      <% }) %>
+      <% if (links.length === 0) { %>
+      <div class="empty-state">
+        <div class="empty-icon">∞</div>
+        <p>Nenhum link criado ainda</p>
+        <button class="btn-orange" onclick="openNewLinkModal()">Criar primeiro link</button>
+      </div>
+      <% } %>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="modal-new-link">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>∞ Novo Link Infinito</h2>
+      <button class="modal-close" onclick="closeNewLinkModal()">✕</button>
+    </div>
+    <p class="modal-sub">Crie um link fixo que gera automaticamente uma nova chamada a cada acesso</p>
+    <form id="form-new-link" enctype="multipart/form-data">
+      <div class="field">
+        <label>Nome do Host *</label>
+        <input type="text" name="host_name" placeholder="Ex: Bruna" required>
+      </div>
+      <div class="field">
+        <label>Slug do Link *</label>
+        <input type="text" name="slug" placeholder="meu-link-unico" id="slug-input" oninput="updateSlugPreview()" required>
+        <div class="slug-preview">Seu link: <span id="slug-preview">https://darkroom.app/go/seu-slug</span></div>
+      </div>
+      <div class="field">
+        <label>Vídeo do Host *</label>
+        <div class="upload-zone" onclick="document.getElementById('video-input').click()">
+          <div class="upload-icon">🎬</div>
+          <div id="upload-label">Clique para adicionar vídeo</div>
+          <div class="upload-sub">MP4, MOV, AVI, MKV, WebM • Máximo 100MB</div>
+        </div>
+        <input type="file" name="video" id="video-input" accept="video/*" style="display:none" onchange="updateVideoLabel(this)">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" onclick="closeNewLinkModal()">Cancelar</button>
+        <button type="submit" class="btn-orange" id="btn-create">Criar Link Infinito</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BASE_URL = '<%= baseUrl %>';
+
+function openNewLinkModal() { document.getElementById('modal-new-link').classList.add('open'); }
+function closeNewLinkModal() { document.getElementById('modal-new-link').classList.remove('open'); }
+
+function updateSlugPreview() {
+  const v = document.getElementById('slug-input').value || 'seu-slug';
+  document.getElementById('slug-preview').textContent = `${BASE_URL}/go/${v}/token`;
+}
+
+function updateVideoLabel(input) {
+  if (input.files[0]) document.getElementById('upload-label').textContent = '✓ ' + input.files[0].name;
+}
+
+document.getElementById('form-new-link').onsubmit = async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('btn-create');
+  btn.textContent = 'Enviando...';
+  btn.disabled = true;
+  const fd = new FormData(e.target);
+  const r = await fetch('/links/create', { method: 'POST', body: fd });
+  const data = await r.json();
+  if (data.success) { showToast('Link criado com sucesso!'); setTimeout(() => location.reload(), 1000); }
+  else { showToast('Erro: ' + data.error); btn.textContent = 'Criar Link Infinito'; btn.disabled = false; }
+};
+
+async function toggleLink(id) {
+  const r = await fetch(`/links/toggle/${id}`, { method: 'POST' });
+  const data = await r.json();
+  if (data.success) { showToast(data.active ? 'Link ativado' : 'Link desativado'); location.reload(); }
+}
+
+async function shareLink(id) {
+  const r = await fetch(`/links/share/${id}`, { method: 'POST' });
+  const data = await r.json();
+  if (data.success) {
+    await navigator.clipboard.writeText(data.url).catch(() => {});
+    showToast('Link copiado: ' + data.url);
+  } else { showToast('Erro: ' + data.error); }
+}
+
+function copyApi(slug) {
+  navigator.clipboard.writeText(`${BASE_URL}/go/${slug}`).catch(() => {});
+  showToast('Link API copiado!');
+}
+
+async function toggleSessions(id) {
+  const panel = document.getElementById(`sessions-${id}`);
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    const r = await fetch(`/dashboard/link/${id}/sessions`);
+    const sessions = await r.json();
+    if (sessions.length === 0) {
+      panel.innerHTML = '<div class="sessions-empty">Nenhuma conversa ainda</div>';
+      return;
+    }
+    panel.innerHTML = `
+      <div class="sessions-table">
+        <div class="sessions-head"><span>Status</span><span>Criada em</span><span>Token</span></div>
+        ${sessions.map(s => `
+          <div class="sessions-row">
+            <span class="badge
