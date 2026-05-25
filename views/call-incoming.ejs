@@ -8,7 +8,7 @@
 <meta property="og:description" content="A participante está na conversa te esperando, acesse agora">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #000; color: #fff; font-family: Arial, sans-serif; height: 100vh; overflow: hidden; touch-action: manipulation; }
+body { background: #000; color: #fff; font-family: Arial, sans-serif; height: 100vh; overflow: hidden; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
 
 #incoming-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 2rem; text-align: center; background: #0a0a0a; }
 .incoming-name { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; margin-top: 1.5rem; }
@@ -24,24 +24,20 @@ body { background: #000; color: #fff; font-family: Arial, sans-serif; height: 10
 
 #call-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; }
 
-#host-video {
+/* Video escondido - só usado para decodificar */
+#host-video { display: none; }
+
+/* Canvas renderiza o vídeo - sem controles, sem download */
+#host-canvas {
   position: absolute;
   top: 0; left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
   z-index: 1;
   pointer-events: none;
   -webkit-user-select: none;
   user-select: none;
 }
-
-#host-video::-webkit-media-controls { display: none !important; }
-#host-video::-webkit-media-controls-enclosure { display: none !important; }
-#host-video::-webkit-media-controls-panel { display: none !important; }
-#host-video::-webkit-media-controls-play-button { display: none !important; }
-#host-video::-webkit-media-controls-timeline { display: none !important; }
-video::-webkit-media-controls { display: none !important; }
 
 #local-video { position: absolute; top: 16px; right: 16px; width: 90px; height: 130px; object-fit: cover; border-radius: 10px; z-index: 10; border: 2px solid rgba(255,255,255,0.3); background: #222; }
 
@@ -53,8 +49,8 @@ video::-webkit-media-controls { display: none !important; }
 .end-box { background: #1a1a1a; border-radius: 16px; padding: 1.75rem; width: 100%; max-width: 400px; text-align: center; margin-bottom: 1rem; }
 .end-box h2 { font-size: 18px; font-weight: 700; margin-bottom: 1rem; }
 .end-box p { font-size: 14px; color: #aaa; line-height: 1.6; margin-bottom: 1.5rem; }
-.btn-end-confirm { display: block; width: 100%; background: #e74c3c; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 10px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-.btn-end-cancel { display: block; width: 100%; background: #2a2a2a; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.btn-end-confirm { display: block; width: 100%; background: #e74c3c; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 10px; touch-action: manipulation; }
+.btn-end-cancel { display: block; width: 100%; background: #2a2a2a; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; cursor: pointer; touch-action: manipulation; }
 </style>
 </head>
 <body>
@@ -72,7 +68,10 @@ video::-webkit-media-controls { display: none !important; }
 </div>
 
 <div id="call-screen">
-  <video id="host-video" autoplay playsinline loop webkit-playsinline x5-playsinline></video>
+  <!-- Vídeo escondido - decodifica mas não aparece -->
+  <video id="host-video" autoplay playsinline loop muted webkit-playsinline crossorigin="anonymous"></video>
+  <!-- Canvas mostra o vídeo sem controles -->
+  <canvas id="host-canvas"></canvas>
   <video id="local-video" autoplay playsinline muted webkit-playsinline></video>
   <div class="call-controls">
     <button class="ctrl-btn" id="btn-mic">🎤</button>
@@ -99,13 +98,24 @@ var micOn = true;
 var camOn = true;
 var speakerOn = true;
 var callActive = false;
+var animFrame = null;
 
 // Intercepta botão voltar do Android
 window.history.pushState(null, null, window.location.href);
-window.addEventListener('popstate', function(e) {
+window.addEventListener('popstate', function() {
   window.history.pushState(null, null, window.location.href);
   if (callActive) {
     document.getElementById('end-modal').style.display = 'flex';
+  }
+});
+
+// Bloqueia clique direito
+document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+
+// Bloqueia atalhos de teclado
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'F12' || (e.ctrlKey && ['s','u','a','c'].includes(e.key.toLowerCase()))) {
+    e.preventDefault();
   }
 });
 
@@ -162,6 +172,34 @@ document.getElementById('btn-speaker').addEventListener('click', function(e) {
   this.textContent = speakerOn ? '🔊' : '🔇';
 });
 
+function renderCanvas() {
+  var video = document.getElementById('host-video');
+  var canvas = document.getElementById('host-canvas');
+  var ctx = canvas.getContext('2d');
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  function draw() {
+    if (video.readyState >= 2) {
+      var vw = video.videoWidth;
+      var vh = video.videoHeight;
+      var cw = canvas.width;
+      var ch = canvas.height;
+
+      var scale = Math.max(cw / vw, ch / vh);
+      var nw = vw * scale;
+      var nh = vh * scale;
+      var nx = (cw - nw) / 2;
+      var ny = (ch - nh) / 2;
+
+      ctx.drawImage(video, nx, ny, nw, nh);
+    }
+    animFrame = requestAnimationFrame(draw);
+  }
+  draw();
+}
+
 async function acceptCall() {
   try {
     var r = await fetch('/go/' + SLUG + '/' + TOKEN + '/accept', { method: 'POST' });
@@ -170,23 +208,30 @@ async function acceptCall() {
 
     callActive = true;
     document.getElementById('incoming-screen').style.display = 'none';
-    var callScreen = document.getElementById('call-screen');
-    callScreen.style.display = 'block';
+    document.getElementById('call-screen').style.display = 'block';
 
     var hostVideo = document.getElementById('host-video');
-    hostVideo.setAttribute('playsinline', '');
-    hostVideo.setAttribute('webkit-playsinline', '');
     hostVideo.src = data.videoUrl;
     hostVideo.muted = true;
     hostVideo.load();
-    hostVideo.play().then(function() {
-      hostVideo.muted = false;
-    }).catch(function() {
-      hostVideo.muted = true;
-      hostVideo.play();
+
+    hostVideo.addEventListener('canplay', function() {
+      hostVideo.play().then(function() {
+        hostVideo.muted = false;
+        speakerOn = true;
+        renderCanvas();
+      }).catch(function() {
+        hostVideo.muted = true;
+        hostVideo.play();
+        renderCanvas();
+      });
     });
 
-    document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+    window.addEventListener('resize', function() {
+      var canvas = document.getElementById('host-canvas');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
 
     try {
       localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -203,6 +248,7 @@ async function acceptCall() {
 
 async function endCall() {
   callActive = false;
+  if (animFrame) cancelAnimationFrame(animFrame);
   if (localStream) localStream.getTracks().forEach(function(t) { t.stop(); });
   try { await fetch('/go/' + SLUG + '/' + TOKEN + '/end', { method: 'POST' }); } catch(e) {}
   location.reload();
