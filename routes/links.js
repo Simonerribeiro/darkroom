@@ -18,7 +18,8 @@ const storage = new CloudinaryStorage({
     folder: 'darkroom/videos',
     resource_type: 'video',
     allowed_formats: ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v'],
-    transformation: [{ quality: 'auto' }]
+    eager: [{ quality: 'auto' }],
+    eager_async: true
   }
 });
 
@@ -47,9 +48,6 @@ router.post('/create', requireAuth, (req, res, next) => {
     console.log('host_name:', host_name);
     console.log('slug:', slug);
     console.log('file:', req.file ? req.file.path : 'nenhum');
-    console.log('CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME ? 'ok' : 'FALTANDO');
-    console.log('API_KEY:', process.env.CLOUDINARY_API_KEY ? 'ok' : 'FALTANDO');
-    console.log('API_SECRET:', process.env.CLOUDINARY_API_SECRET ? 'ok' : 'FALTANDO');
 
     const videoUrl = req.file ? req.file.path : null;
     const videoPublicId = req.file ? req.file.filename : null;
