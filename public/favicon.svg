@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <rect width="100" height="100" rx="20" fill="#0d0d0d"/>
+  <g fill="#e8641a">
+    <!-- Orelhas -->
+    <polygon points="20,45 30,15 40,45"/>
+    <polygon points="60,45 70,15 80,45"/>
+    <!-- Cabeça -->
+    <ellipse cx="50" cy="58" rx="28" ry="25"/>
+    <!-- Olhos -->
+    <ellipse cx="40" cy="52" rx="5" ry="6" fill="#0d0d0d"/>
+    <ellipse cx="60" cy="52" rx="5" ry="6" fill="#0d0d0d"/>
+    <!-- Pupilas brilho -->
+    <circle cx="42" cy="50" r="1.5" fill="#e8641a"/>
+    <circle cx="62" cy="50" r="1.5" fill="#e8641a"/>
+    <!-- Nariz -->
+    <polygon points="50,60 47,63 53,63" fill="#0d0d0d"/>
+    <!-- Boca -->
+    <path d="M47,63 Q44,67 41,65" stroke="#0d0d0d" stroke-width="1.5" fill="none"/>
+    <path d="M53,63 Q56,67 59,65" stroke="#0d0d0d" stroke-width="1.5" fill="none"/>
+    <!-- Bigodes esquerda -->
+    <line x1="22" y1="60" x2="42" y2="62" stroke="#0d0d0d" stroke-width="1.5"/>
+    <line x1="22" y1="65" x2="42" y2="64" stroke="#0d0d0d" stroke-width="1.5"/>
+    <!-- Bigodes direita -->
+    <line x1="78" y1="60" x2="58" y2="62" stroke="#0d0d0d" stroke-width="1.5"/>
+    <line x1="78" y1="65" x2="58" y2="64" stroke="#0d0d0d" stroke-width="1.5"/>
+  </g>
+</svg>
