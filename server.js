@@ -14,8 +14,8 @@ const io = new Server(server, { cors: { origin: '*' } });
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '600mb' }));
+app.use(express.urlencoded({ extended: true, limit: '600mb' }));
 
 const sessionMiddleware = session({
   store: new SQLiteStore({
