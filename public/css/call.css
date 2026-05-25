@@ -10,7 +10,7 @@
   --green: #27ae60;
 }
 
-body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; touch-action: manipulation; }
 
 .incoming-body { display: flex; align-items: center; justify-content: center; height: 100vh; background: var(--bg); }
 
@@ -34,10 +34,20 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .incoming-label { font-size: 1rem; color: var(--muted); margin-bottom: 0.25rem; }
 .incoming-sub { font-size: 0.85rem; color: #666; margin-bottom: 3rem; }
 
-.incoming-buttons { display: flex; gap: 4rem; margin-bottom: 1.5rem; }
+.incoming-buttons { display: flex; gap: 4rem; margin-bottom: 1.5rem; align-items: center; justify-content: center; }
 
-.btn-decline, .btn-accept { width: 72px; height: 72px; border-radius: 50%; border: none; font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.1s; }
-.btn-decline:active, .btn-accept:active { transform: scale(0.92); }
+.btn-decline, .btn-accept {
+  width: 72px; height: 72px; border-radius: 50%; border: none;
+  font-size: 1.5rem; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  position: relative;
+  z-index: 10;
+}
+
 .btn-decline { background: var(--red); }
 .btn-accept { background: var(--green); animation: ring-btn 1s ease-in-out infinite; }
 
@@ -60,7 +70,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
 .call-controls { position: absolute; bottom: 0; left: 0; right: 0; padding: 1.5rem 2rem 2.5rem; display: flex; align-items: center; justify-content: center; gap: 1rem; background: linear-gradient(transparent, rgba(0,0,0,0.7)); z-index: 20; }
 
-.ctrl-btn { width: 52px; height: 52px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: #fff; font-size: 1.3rem; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); transition: background 0.15s; }
+.ctrl-btn { width: 52px; height: 52px; border-radius: 50%; border: none; background: rgba(255,255,255,0.15); color: #fff; font-size: 1.3rem; cursor: pointer; display: flex; align-items: center; justify-content: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .ctrl-btn:hover { background: rgba(255,255,255,0.25); }
 .ctrl-btn.end { background: var(--red); width: 60px; height: 60px; font-size: 1.5rem; }
 .ctrl-btn.end:hover { background: #c0392b; }
@@ -71,7 +81,15 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .end-box { background: #1a1a1a; border-radius: 16px; padding: 1.75rem; width: 100%; max-width: 400px; text-align: center; margin-bottom: 1rem; }
 .end-box h2 { font-size: 18px; font-weight: 600; margin-bottom: 1rem; }
 .end-box p { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 1.5rem; }
-.btn-end-confirm { display: block; width: 100%; background: var(--red); color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; margin-bottom: 10px; }
-.btn-end-cancel { display: block; width: 100%; background: #2a2a2a; color: var(--text); border: none; border-radius: 10px; padding: 14px; font-size: 15px; cursor: pointer; font-family: inherit; }
+.btn-end-confirm { display: block; width: 100%; background: var(--red); color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; margin-bottom: 10px; touch-action: manipulation; }
+.btn-end-cancel { display: block; width: 100%; background: #2a2a2a; color: var(--text); border: none; border-radius: 10px; padding: 14px; font-size: 15px; cursor: pointer; font-family: inherit; touch-action: manipulation; }
 
-.
+.blocked-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; text-align: center; }
+.blocked-icon { width: 72px; height: 72px; background: #2a0f0f; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; margin-bottom: 1.5rem; }
+.blocked-screen h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.75rem; }
+.blocked-screen > p { color: var(--muted); margin-bottom: 1.5rem; }
+.blocked-info { background: #161616; border: 0.5px solid #2a2a2a; border-radius: 12px; padding: 1.25rem; max-width: 380px; text-align: left; margin-bottom: 1.5rem; }
+.blocked-info p { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 0.75rem; }
+.blocked-info p:last-child { margin-bottom: 0; }
+.blocked-info b { color: var(--text); }
+.btn-close { background: #1e1e1e; color: var(--text); border: 0.5px solid #2a2a2a; border-radius: 10px; padding: 12px 2rem; font-size: 14px; cursor: pointer; font-family: inherit; touch-action: manipulation; }
