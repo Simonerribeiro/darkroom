@@ -65,10 +65,12 @@
             </div>
           </div>
           <div class="link-actions">
-            <button class="btn-icon danger" data-toggle="<%= link.id %>">⏻</button>
+            <button class="btn-icon danger" data-toggle="<%= link.id %>" title="Ativar/Desativar">⏻</button>
             <button class="btn-icon" data-copy-api="<%= link.slug %>">⎘ API</button>
             <button class="btn-icon orange" data-share="<%= link.id %>">🔗 Compartilhar</button>
             <button class="btn-icon" data-sessions="<%= link.id %>">Ver Detalhes ▾</button>
+            <button class="btn-icon" data-edit="<%= link.id %>" data-name="<%= link.host_name %>">✏️</button>
+            <button class="btn-icon danger" data-delete="<%= link.id %>">🗑️</button>
           </div>
         </div>
         <div class="sessions-panel" id="sessions-<%= link.id %>" style="display:none">
@@ -121,18 +123,35 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-edit-link">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>✏️ Editar Link</h2>
+      <button class="modal-close" id="btn-close-edit">✕</button>
+    </div>
+    <form id="form-edit-link">
+      <input type="hidden" id="edit-link-id">
+      <div class="field">
+        <label>Nome do Host *</label>
+        <input type="text" id="edit-host-name" placeholder="Ex: Bruna" required>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-ghost" id="btn-cancel-edit">Cancelar</button>
+        <button type="submit" class="btn-orange">Salvar alterações</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 var BASE_URL = '<%= baseUrl %>';
 
-function showModal() {
-  document.getElementById('modal-new-link').classList.add('open');
-}
-
-function hideModal() {
-  document.getElementById('modal-new-link').classList.remove('open');
-}
+function showModal() { document.getElementById('modal-new-link').classList.add('open'); }
+function hideModal() { document.getElementById('modal-new-link').classList.remove('open'); }
+function showEditModal() { document.getElementById('modal-edit-link').classList.add('open'); }
+function hideEditModal() { document.getElementById('modal-edit-link').classList.remove('open'); }
 
 function showToast(msg) {
   var t = document.getElementById('toast');
@@ -142,12 +161,12 @@ function showToast(msg) {
 }
 
 document.getElementById('btn-novo-link').addEventListener('click', showModal);
-
 var btnPrimeiro = document.getElementById('btn-primeiro-link');
 if (btnPrimeiro) btnPrimeiro.addEventListener('click', showModal);
-
 document.getElementById('btn-close-modal').addEventListener('click', hideModal);
 document.getElementById('btn-cancel').addEventListener('click', hideModal);
+document.getElementById('btn-close-edit').addEventListener('click', hideEditModal);
+document.getElementById('btn-cancel-edit').addEventListener('click', hideEditModal);
 
 document.getElementById('slug-input').addEventListener('input', function() {
   var v = this.value || 'seu-slug';
@@ -188,11 +207,36 @@ document.getElementById('form-new-link').addEventListener('submit', async functi
   }
 });
 
+document.getElementById('form-edit-link').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var id = document.getElementById('edit-link-id').value;
+  var name = document.getElementById('edit-host-name').value;
+  try {
+    var r = await fetch('/links/edit/' + id, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ host_name: name })
+    });
+    var data = await r.json();
+    if (data.success) {
+      showToast('Link atualizado!');
+      setTimeout(function() { location.reload(); }, 1000);
+    } else {
+      showToast('Erro ao atualizar');
+    }
+  } catch(err) {
+    showToast('Erro de conexão');
+  }
+});
+
 document.addEventListener('click', async function(e) {
   var toggleId = e.target.getAttribute('data-toggle');
   var shareId = e.target.getAttribute('data-share');
   var copyApi = e.target.getAttribute('data-copy-api');
   var sessionsId = e.target.getAttribute('data-sessions');
+  var deleteId = e.target.getAttribute('data-delete');
+  var editId = e.target.getAttribute('data-edit');
+  var editName = e.target.getAttribute('data-name');
 
   if (toggleId) {
     var r = await fetch('/links/toggle/' + toggleId, { method: 'POST' });
@@ -214,6 +258,21 @@ document.addEventListener('click', async function(e) {
   if (copyApi) {
     navigator.clipboard.writeText(BASE_URL + '/go/' + copyApi).catch(function(){});
     showToast('Link API copiado!');
+  }
+
+  if (deleteId) {
+    if (confirm('Tem certeza que deseja deletar este link?')) {
+      var r = await fetch('/links/delete/' + deleteId, { method: 'DELETE' });
+      var data = await r.json();
+      if (data.success) { showToast('Link deletado!'); location.reload(); }
+      else { showToast('Erro ao deletar'); }
+    }
+  }
+
+  if (editId) {
+    document.getElementById('edit-link-id').value = editId;
+    document.getElementById('edit-host-name').value = editName;
+    showEditModal();
   }
 
   if (sessionsId) {
