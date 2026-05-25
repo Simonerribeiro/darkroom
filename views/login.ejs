@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Darkroom — Login</title>
+<link rel="stylesheet" href="/css/main.css">
+</head>
+<body class="auth-body">
+<div class="auth-container">
+  <div class="auth-box">
+    <div class="logo">dark<span>room</span></div>
+    <p class="auth-sub">Plataforma de videochamadas privadas</p>
+    <% if (error) { %>
+    <div class="alert-error"><%= error %></div>
+    <% } %>
+    <form action="/login" method="POST">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" name="email" placeholder="seu@email.com" required>
+      </div>
+      <div class="field">
+        <label>Senha</label>
+        <input type="password" name="password" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn-primary full">Entrar</button>
+    </form>
+  </div>
+</div>
+</body>
+</html>
