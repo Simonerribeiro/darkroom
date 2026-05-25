@@ -8,7 +8,7 @@
 <meta property="og:description" content="A participante está na conversa te esperando, acesse agora">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #000; color: #fff; font-family: 'Arial', sans-serif; height: 100vh; overflow: hidden; touch-action: manipulation; }
+body { background: #000; color: #fff; font-family: Arial, sans-serif; height: 100vh; overflow: hidden; touch-action: manipulation; }
 
 #incoming-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 2rem; text-align: center; background: #0a0a0a; }
 .incoming-name { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; margin-top: 1.5rem; }
@@ -49,12 +49,12 @@ video::-webkit-media-controls { display: none !important; }
 .ctrl-btn { width: 54px; height: 54px; border-radius: 50%; border: none; background: rgba(255,255,255,0.2); color: #fff; font-size: 1.4rem; cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 .ctrl-btn.end { background: #e74c3c; width: 62px; height: 62px; }
 
-#end-modal { display: none; position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.6); align-items: flex-end; justify-content: center; padding: 1rem; }
+#end-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; background: rgba(0,0,0,0.6); align-items: flex-end; justify-content: center; padding: 1rem; }
 .end-box { background: #1a1a1a; border-radius: 16px; padding: 1.75rem; width: 100%; max-width: 400px; text-align: center; margin-bottom: 1rem; }
 .end-box h2 { font-size: 18px; font-weight: 700; margin-bottom: 1rem; }
 .end-box p { font-size: 14px; color: #aaa; line-height: 1.6; margin-bottom: 1.5rem; }
-.btn-end-confirm { display: block; width: 100%; background: #e74c3c; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 10px; touch-action: manipulation; }
-.btn-end-cancel { display: block; width: 100%; background: #2a2a2a; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; cursor: pointer; touch-action: manipulation; }
+.btn-end-confirm { display: block; width: 100%; background: #e74c3c; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 10px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.btn-end-cancel { display: block; width: 100%; background: #2a2a2a; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 </style>
 </head>
 <body>
@@ -72,12 +72,12 @@ video::-webkit-media-controls { display: none !important; }
 </div>
 
 <div id="call-screen">
-  <video id="host-video" autoplay playsinline loop webkit-playsinline x5-playsinline x5-video-player-type="h5" x5-video-player-fullscreen="false"></video>
+  <video id="host-video" autoplay playsinline loop webkit-playsinline x5-playsinline></video>
   <video id="local-video" autoplay playsinline muted webkit-playsinline></video>
   <div class="call-controls">
     <button class="ctrl-btn" id="btn-mic">🎤</button>
     <button class="ctrl-btn" id="btn-cam">📷</button>
-    <button class="ctrl-btn" id="btn-speaker">🔇</button>
+    <button class="ctrl-btn" id="btn-speaker">🔊</button>
     <button class="ctrl-btn end" id="btn-end">📵</button>
   </div>
 </div>
@@ -99,29 +99,54 @@ var micOn = true;
 var camOn = true;
 var speakerOn = true;
 
-document.getElementById('btn-accept').addEventListener('click', acceptCall);
-document.getElementById('btn-decline').addEventListener('click', function() { history.back(); });
-document.getElementById('btn-end').addEventListener('click', function() {
+document.getElementById('btn-accept').addEventListener('click', function(e) {
+  e.preventDefault();
+  acceptCall();
+});
+
+document.getElementById('btn-decline').addEventListener('click', function(e) {
+  e.preventDefault();
+  window.close();
+  setTimeout(function() { window.location.href = 'about:blank'; }, 300);
+});
+
+document.getElementById('btn-end').addEventListener('click', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
   var m = document.getElementById('end-modal');
   m.style.display = 'flex';
 });
-document.getElementById('btn-end-confirm').addEventListener('click', endCall);
-document.getElementById('btn-end-cancel').addEventListener('click', function() {
+
+document.getElementById('btn-end-confirm').addEventListener('click', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  endCall();
+});
+
+document.getElementById('btn-end-cancel').addEventListener('click', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
   document.getElementById('end-modal').style.display = 'none';
 });
-document.getElementById('btn-mic').addEventListener('click', function() {
+
+document.getElementById('btn-mic').addEventListener('click', function(e) {
+  e.preventDefault();
   if (!localStream) return;
   micOn = !micOn;
   localStream.getAudioTracks().forEach(function(t) { t.enabled = micOn; });
   this.style.opacity = micOn ? '1' : '0.4';
 });
-document.getElementById('btn-cam').addEventListener('click', function() {
+
+document.getElementById('btn-cam').addEventListener('click', function(e) {
+  e.preventDefault();
   if (!localStream) return;
   camOn = !camOn;
   localStream.getVideoTracks().forEach(function(t) { t.enabled = camOn; });
   this.style.opacity = camOn ? '1' : '0.4';
 });
-document.getElementById('btn-speaker').addEventListener('click', function() {
+
+document.getElementById('btn-speaker').addEventListener('click', function(e) {
+  e.preventDefault();
   var v = document.getElementById('host-video');
   speakerOn = !speakerOn;
   v.muted = !speakerOn;
