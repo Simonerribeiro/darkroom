@@ -3,11 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Darkroom — Dashboard</title>
+<title>Darkroom</title>
 <link rel="stylesheet" href="/css/main.css">
 </head>
 <body class="app-body">
-
 <div class="topbar">
   <div class="topbar-logo">dark<span>room</span></div>
   <div class="topbar-right">
@@ -15,13 +14,11 @@
     <a href="/logout" class="btn-ghost">Sair</a>
   </div>
 </div>
-
 <div class="layout">
   <aside class="sidebar">
     <a href="/dashboard" class="sidebar-item active">∞ Links Infinitos</a>
     <a href="/logout" class="sidebar-item">↩ Sair</a>
   </aside>
-
   <main class="content">
     <div class="page-header">
       <div>
@@ -35,9 +32,8 @@
           <span><b><%= stats.activeConvs %></b> conversas ativas</span>
         </div>
       </div>
-      <button class="btn-orange" onclick="openNewLinkModal()">+ Novo Link Infinito</button>
+      <button class="btn-orange" id="btn-novo-link">+ Novo Link Infinito</button>
     </div>
-
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-label">Links Ativos</div>
@@ -52,11 +48,10 @@
         <div class="stat-value green"><%= stats.activeConvs %></div>
       </div>
     </div>
-
-    <div class="links-list">
-      <% links.forEach(link => { %>
+    <div class="links-list" id="links-list">
+      <% links.forEach(function(link) { %>
       <div class="link-card" id="link-<%= link.id %>">
-        <div class="link-card-header" onclick="toggleSessions(<%= link.id %>)">
+        <div class="link-card-header">
           <div class="host-info">
             <div class="avatar"><%= link.host_name.substring(0,2).toUpperCase() %></div>
             <div>
@@ -70,14 +65,14 @@
             </div>
           </div>
           <div class="link-actions">
-            <button class="btn-icon danger" onclick="event.stopPropagation();toggleLink(<%= link.id %>)">⏻</button>
-            <button class="btn-icon" onclick="event.stopPropagation();copyApi('<%= link.slug %>')">⎘ API</button>
-            <button class="btn-icon orange" onclick="event.stopPropagation();shareLink(<%= link.id %>)">🔗 Compartilhar</button>
-            <button class="btn-icon" onclick="event.stopPropagation();toggleSessions(<%= link.id %>)">Ver Detalhes ▾</button>
+            <button class="btn-icon danger" data-toggle="<%= link.id %>">⏻</button>
+            <button class="btn-icon" data-copy-api="<%= link.slug %>">⎘ API</button>
+            <button class="btn-icon orange" data-share="<%= link.id %>">🔗 Compartilhar</button>
+            <button class="btn-icon" data-sessions="<%= link.id %>">Ver Detalhes ▾</button>
           </div>
         </div>
         <div class="sessions-panel" id="sessions-<%= link.id %>" style="display:none">
-          <div class="sessions-loading">Carregando conversas...</div>
+          <div class="sessions-loading">Carregando...</div>
         </div>
       </div>
       <% }) %>
@@ -85,7 +80,7 @@
       <div class="empty-state">
         <div class="empty-icon">∞</div>
         <p>Nenhum link criado ainda</p>
-        <button class="btn-orange" onclick="openNewLinkModal()">Criar primeiro link</button>
+        <button class="btn-orange" id="btn-primeiro-link">Criar primeiro link</button>
       </div>
       <% } %>
     </div>
@@ -96,7 +91,7 @@
   <div class="modal">
     <div class="modal-header">
       <h2>∞ Novo Link Infinito</h2>
-      <button class="modal-close" onclick="closeNewLinkModal()">✕</button>
+      <button class="modal-close" id="btn-close-modal">✕</button>
     </div>
     <p class="modal-sub">Crie um link fixo que gera automaticamente uma nova chamada a cada acesso</p>
     <form id="form-new-link" enctype="multipart/form-data">
@@ -106,20 +101,20 @@
       </div>
       <div class="field">
         <label>Slug do Link *</label>
-        <input type="text" name="slug" placeholder="meu-link-unico" id="slug-input" oninput="updateSlugPreview()" required>
-        <div class="slug-preview">Seu link: <span id="slug-preview">https://darkroom.app/go/seu-slug</span></div>
+        <input type="text" name="slug" placeholder="meu-link-unico" id="slug-input" required>
+        <div class="slug-preview">Seu link: <span id="slug-preview">darkroom.app/go/seu-slug</span></div>
       </div>
       <div class="field">
         <label>Vídeo do Host *</label>
-        <div class="upload-zone" onclick="document.getElementById('video-input').click()">
+        <div class="upload-zone" id="upload-zone">
           <div class="upload-icon">🎬</div>
           <div id="upload-label">Clique para adicionar vídeo</div>
           <div class="upload-sub">MP4, MOV, AVI, MKV, WebM • Máximo 100MB</div>
         </div>
-        <input type="file" name="video" id="video-input" accept="video/*" style="display:none" onchange="updateVideoLabel(this)">
+        <input type="file" name="video" id="video-input" accept="video/*" style="display:none">
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn-ghost" onclick="closeNewLinkModal()">Cancelar</button>
+        <button type="button" class="btn-ghost" id="btn-cancel">Cancelar</button>
         <button type="submit" class="btn-orange" id="btn-create">Criar Link Infinito</button>
       </div>
     </form>
@@ -129,65 +124,121 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const BASE_URL = '<%= baseUrl %>';
+var BASE_URL = '<%= baseUrl %>';
 
-function openNewLinkModal() { document.getElementById('modal-new-link').classList.add('open'); }
-function closeNewLinkModal() { document.getElementById('modal-new-link').classList.remove('open'); }
-
-function updateSlugPreview() {
-  const v = document.getElementById('slug-input').value || 'seu-slug';
-  document.getElementById('slug-preview').textContent = `${BASE_URL}/go/${v}/token`;
+function showModal() {
+  document.getElementById('modal-new-link').classList.add('open');
 }
 
-function updateVideoLabel(input) {
-  if (input.files[0]) document.getElementById('upload-label').textContent = '✓ ' + input.files[0].name;
+function hideModal() {
+  document.getElementById('modal-new-link').classList.remove('open');
 }
 
-document.getElementById('form-new-link').onsubmit = async (e) => {
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 3000);
+}
+
+document.getElementById('btn-novo-link').addEventListener('click', showModal);
+
+var btnPrimeiro = document.getElementById('btn-primeiro-link');
+if (btnPrimeiro) btnPrimeiro.addEventListener('click', showModal);
+
+document.getElementById('btn-close-modal').addEventListener('click', hideModal);
+document.getElementById('btn-cancel').addEventListener('click', hideModal);
+
+document.getElementById('slug-input').addEventListener('input', function() {
+  var v = this.value || 'seu-slug';
+  document.getElementById('slug-preview').textContent = BASE_URL + '/go/' + v;
+});
+
+document.getElementById('upload-zone').addEventListener('click', function() {
+  document.getElementById('video-input').click();
+});
+
+document.getElementById('video-input').addEventListener('change', function() {
+  if (this.files[0]) {
+    document.getElementById('upload-label').textContent = '✓ ' + this.files[0].name;
+  }
+});
+
+document.getElementById('form-new-link').addEventListener('submit', async function(e) {
   e.preventDefault();
-  const btn = document.getElementById('btn-create');
+  var btn = document.getElementById('btn-create');
   btn.textContent = 'Enviando...';
   btn.disabled = true;
-  const fd = new FormData(e.target);
-  const r = await fetch('/links/create', { method: 'POST', body: fd });
-  const data = await r.json();
-  if (data.success) { showToast('Link criado com sucesso!'); setTimeout(() => location.reload(), 1000); }
-  else { showToast('Erro: ' + data.error); btn.textContent = 'Criar Link Infinito'; btn.disabled = false; }
-};
-
-async function toggleLink(id) {
-  const r = await fetch(`/links/toggle/${id}`, { method: 'POST' });
-  const data = await r.json();
-  if (data.success) { showToast(data.active ? 'Link ativado' : 'Link desativado'); location.reload(); }
-}
-
-async function shareLink(id) {
-  const r = await fetch(`/links/share/${id}`, { method: 'POST' });
-  const data = await r.json();
-  if (data.success) {
-    await navigator.clipboard.writeText(data.url).catch(() => {});
-    showToast('Link copiado: ' + data.url);
-  } else { showToast('Erro: ' + data.error); }
-}
-
-function copyApi(slug) {
-  navigator.clipboard.writeText(`${BASE_URL}/go/${slug}`).catch(() => {});
-  showToast('Link API copiado!');
-}
-
-async function toggleSessions(id) {
-  const panel = document.getElementById(`sessions-${id}`);
-  if (panel.style.display === 'none') {
-    panel.style.display = 'block';
-    const r = await fetch(`/dashboard/link/${id}/sessions`);
-    const sessions = await r.json();
-    if (sessions.length === 0) {
-      panel.innerHTML = '<div class="sessions-empty">Nenhuma conversa ainda</div>';
-      return;
+  var fd = new FormData(this);
+  try {
+    var r = await fetch('/links/create', { method: 'POST', body: fd });
+    var data = await r.json();
+    if (data.success) {
+      showToast('Link criado com sucesso!');
+      setTimeout(function() { location.reload(); }, 1500);
+    } else {
+      showToast('Erro: ' + (data.error || 'Tente novamente'));
+      btn.textContent = 'Criar Link Infinito';
+      btn.disabled = false;
     }
-    panel.innerHTML = `
-      <div class="sessions-table">
-        <div class="sessions-head"><span>Status</span><span>Criada em</span><span>Token</span></div>
-        ${sessions.map(s => `
-          <div class="sessions-row">
-            <span class="badge
+  } catch(err) {
+    showToast('Erro de conexão');
+    btn.textContent = 'Criar Link Infinito';
+    btn.disabled = false;
+  }
+});
+
+document.addEventListener('click', async function(e) {
+  var toggleId = e.target.getAttribute('data-toggle');
+  var shareId = e.target.getAttribute('data-share');
+  var copyApi = e.target.getAttribute('data-copy-api');
+  var sessionsId = e.target.getAttribute('data-sessions');
+
+  if (toggleId) {
+    var r = await fetch('/links/toggle/' + toggleId, { method: 'POST' });
+    var data = await r.json();
+    if (data.success) { showToast(data.active ? 'Link ativado' : 'Link desativado'); location.reload(); }
+  }
+
+  if (shareId) {
+    var r = await fetch('/links/share/' + shareId, { method: 'POST' });
+    var data = await r.json();
+    if (data.success) {
+      navigator.clipboard.writeText(data.url).catch(function(){});
+      showToast('Link copiado: ' + data.url);
+    } else {
+      showToast('Erro: ' + (data.error || 'Tente novamente'));
+    }
+  }
+
+  if (copyApi) {
+    navigator.clipboard.writeText(BASE_URL + '/go/' + copyApi).catch(function(){});
+    showToast('Link API copiado!');
+  }
+
+  if (sessionsId) {
+    var panel = document.getElementById('sessions-' + sessionsId);
+    if (panel.style.display === 'none') {
+      panel.style.display = 'block';
+      var r = await fetch('/dashboard/link/' + sessionsId + '/sessions');
+      var sessions = await r.json();
+      if (sessions.length === 0) {
+        panel.innerHTML = '<div class="sessions-empty">Nenhuma conversa ainda</div>';
+        return;
+      }
+      var html = '<div class="sessions-table"><div class="sessions-head"><span>Status</span><span>Criada em</span><span>Token</span></div>';
+      sessions.forEach(function(s) {
+        var badge = s.status === 'active' ? 'badge-active' : s.status === 'ended' ? 'badge-ended' : 'badge-pending';
+        var label = s.status === 'active' ? '● Ativa' : s.status === 'ended' ? '⊘ Finalizada' : '○ Pendente';
+        html += '<div class="sessions-row"><span class="badge ' + badge + '">' + label + '</span><span>' + new Date(s.created_at).toLocaleString('pt-BR') + '</span><span class="token-cell">' + s.session_token.substring(0,12) + '...</span></div>';
+      });
+      html += '<div class="sessions-foot"><span>Total: ' + sessions.length + '</span><span>Finalizadas: ' + sessions.filter(function(s){return s.status==='ended';}).length + '</span></div></div>';
+      panel.innerHTML = html;
+    } else {
+      panel.style.display = 'none';
+    }
+  }
+});
+</script>
+</body>
+</html>
