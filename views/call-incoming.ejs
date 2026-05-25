@@ -98,6 +98,16 @@ var localStream = null;
 var micOn = true;
 var camOn = true;
 var speakerOn = true;
+var callActive = false;
+
+// Intercepta botão voltar do Android
+window.history.pushState(null, null, window.location.href);
+window.addEventListener('popstate', function(e) {
+  window.history.pushState(null, null, window.location.href);
+  if (callActive) {
+    document.getElementById('end-modal').style.display = 'flex';
+  }
+});
 
 document.getElementById('btn-accept').addEventListener('click', function(e) {
   e.preventDefault();
@@ -113,8 +123,7 @@ document.getElementById('btn-decline').addEventListener('click', function(e) {
 document.getElementById('btn-end').addEventListener('click', function(e) {
   e.preventDefault();
   e.stopPropagation();
-  var m = document.getElementById('end-modal');
-  m.style.display = 'flex';
+  document.getElementById('end-modal').style.display = 'flex';
 });
 
 document.getElementById('btn-end-confirm').addEventListener('click', function(e) {
@@ -159,6 +168,7 @@ async function acceptCall() {
     var data = await r.json();
     if (!data.success || data.blocked) { location.reload(); return; }
 
+    callActive = true;
     document.getElementById('incoming-screen').style.display = 'none';
     var callScreen = document.getElementById('call-screen');
     callScreen.style.display = 'block';
@@ -192,6 +202,7 @@ async function acceptCall() {
 }
 
 async function endCall() {
+  callActive = false;
   if (localStream) localStream.getTracks().forEach(function(t) { t.stop(); });
   try { await fetch('/go/' + SLUG + '/' + TOKEN + '/end', { method: 'POST' }); } catch(e) {}
   location.reload();
