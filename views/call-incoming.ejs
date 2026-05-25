@@ -18,81 +18,129 @@
   <p class="incoming-label">Chamada de vídeo recebida</p>
   <p class="incoming-sub">Entrando como Lead</p>
   <div class="incoming-buttons">
-    <button class="btn-decline" onclick="declineCall()">✕</button>
-    <button class="btn-accept" onclick="acceptCall()">📞</button>
+    <button class="btn-decline" id="btn-decline">✕</button>
+    <button class="btn-accept" id="btn-accept">📞</button>
   </div>
   <p class="incoming-hint">Toque em aceitar para entrar na chamada</p>
 </div>
 
 <div class="call-screen" id="call-screen" style="display:none">
-  <video id="host-video" autoplay playsinline loop></video>
+  <video id="host-video" autoplay playsinline loop muted></video>
   <video id="local-video" autoplay playsinline muted></video>
   <div class="call-controls">
-    <button class="ctrl-btn" id="btn-mic" onclick="toggleMic()">🎤</button>
-    <button class="ctrl-btn" id="btn-cam" onclick="toggleCam()">📷</button>
-    <button class="ctrl-btn" id="btn-speaker" onclick="toggleSpeaker()">🔊</button>
-    <button class="ctrl-btn end" onclick="confirmEnd()">📵</button>
-    <button class="ctrl-btn" onclick="toggleLocalVideo()">⬜</button>
+    <button class="ctrl-btn" id="btn-mic">🎤</button>
+    <button class="ctrl-btn" id="btn-cam">📷</button>
+    <button class="ctrl-btn" id="btn-speaker">🔊</button>
+    <button class="ctrl-btn end" id="btn-end">📵</button>
   </div>
 </div>
 
 <div class="end-modal" id="end-modal" style="display:none">
   <div class="end-box">
     <h2>Encerrar chamada?</h2>
-    <p>Você está prestes a sair desta chamada de vídeo. Esta é uma sessão de acesso único — uma vez que você sair, não poderá retornar. Tem certeza de que deseja continuar?</p>
-    <button class="btn-end-confirm" onclick="endCall()">Sim, encerrar chamada</button>
-    <button class="btn-end-cancel" onclick="document.getElementById('end-modal').style.display='none'">Cancelar</button>
+    <p>Esta é uma sessão de acesso único — uma vez que você sair, não poderá retornar.</p>
+    <button class="btn-end-confirm" id="btn-end-confirm">Sim, encerrar chamada</button>
+    <button class="btn-end-cancel" id="btn-end-cancel">Cancelar</button>
   </div>
 </div>
 
 <script>
-const SLUG = '<%= link.slug %>';
-const TOKEN = '<%= session.session_token %>';
-let localStream = null;
-let micOn = true;
-let camOn = true;
+var SLUG = '<%= link.slug %>';
+var TOKEN = '<%= session.session_token %>';
+var localStream = null;
+var micOn = true;
+var camOn = true;
 
-async function acceptCall() {
-  const r = await fetch(`/go/${SLUG}/${TOKEN}/accept`, { method: 'POST' });
-  const data = await r.json();
-  if (!data.success || data.blocked) {
-    location.reload();
-    return;
-  }
-  document.getElementById('incoming-screen').style.display = 'none';
-  document.getElementById('call-screen').style.display = 'flex';
+document.getElementById('btn-accept').addEventListener('click', function() {
+  acceptCall();
+});
 
-  const hostVideo = document.getElementById('host-video');
-  hostVideo.src = data.videoUrl;
-  hostVideo.controls = false;
-  hostVideo.disablePictureInPicture = true;
-  hostVideo.controlsList = 'nodownload nofullscreen noremoteplayback';
-  hostVideo.oncontextmenu = (e) => e.preventDefault();
-  hostVideo.play().catch(() => {});
+document.getElementById('btn-decline').addEventListener('click', function() {
+  history.back();
+});
 
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    document.getElementById('local-video').srcObject = localStream;
-  } catch (e) {
-    console.log('Câmera não disponível:', e);
-  }
+document.getElementById('btn-end').addEventListener('click', function() {
+  document.getElementById('end-modal').style.display = 'flex';
+});
 
-  document.addEventListener('contextmenu', e => e.preventDefault());
-  document.addEventListener('keydown', e => {
-    if (e.key === 'F12' || (e.ctrlKey && ['s','u','a'].includes(e.key.toLowerCase()))) e.preventDefault();
-  });
-}
+document.getElementById('btn-end-confirm').addEventListener('click', function() {
+  endCall();
+});
 
-function declineCall() { history.back(); }
+document.getElementById('btn-end-cancel').addEventListener('click', function() {
+  document.getElementById('end-modal').style.display = 'none';
+});
 
-function toggleMic() {
+document.getElementById('btn-mic').addEventListener('click', function() {
   if (!localStream) return;
   micOn = !micOn;
-  localStream.getAudioTracks().forEach(t => t.enabled = micOn);
-  document.getElementById('btn-mic').style.opacity = micOn ? '1' : '0.4';
-}
+  localStream.getAudioTracks().forEach(function(t) { t.enabled = micOn; });
+  this.style.opacity = micOn ? '1' : '0.4';
+});
 
-function toggleCam() {
+document.getElementById('btn-cam').addEventListener('click', function() {
   if (!localStream) return;
   camOn = !camOn;
-  localStream.getVideoTracks().forEach(t => t.e
+  localStream.getVideoTracks().forEach(function(t) { t.enabled = camOn; });
+  this.style.opacity = camOn ? '1' : '0.4';
+});
+
+document.getElementById('btn-speaker').addEventListener('click', function() {
+  var v = document.getElementById('host-video');
+  v.muted = !v.muted;
+  this.style.opacity = v.muted ? '0.4' : '1';
+});
+
+async function acceptCall() {
+  try {
+    var r = await fetch('/go/' + SLUG + '/' + TOKEN + '/accept', { method: 'POST' });
+    var data = await r.json();
+
+    if (!data.success || data.blocked) {
+      location.reload();
+      return;
+    }
+
+    document.getElementById('incoming-screen').style.display = 'none';
+    document.getElementById('call-screen').style.display = 'flex';
+
+    var hostVideo = document.getElementById('host-video');
+    hostVideo.src = data.videoUrl;
+    hostVideo.muted = false;
+    hostVideo.play().catch(function(e) {
+      console.log('Autoplay blocked:', e);
+      hostVideo.muted = true;
+      hostVideo.play();
+    });
+
+    document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      document.getElementById('local-video').srcObject = localStream;
+    } catch (e) {
+      console.log('Camera error:', e);
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+      } catch (e2) {
+        console.log('Audio only error:', e2);
+      }
+    }
+  } catch(err) {
+    console.error('Accept error:', err);
+    alert('Erro ao conectar. Tente novamente.');
+  }
+}
+
+async function endCall() {
+  if (localStream) {
+    localStream.getTracks().forEach(function(t) { t.stop(); });
+  }
+  try {
+    await fetch('/go/' + SLUG + '/' + TOKEN + '/end', { method: 'POST' });
+  } catch(e) {}
+  location.reload();
+}
+</script>
+</body>
+</html>
