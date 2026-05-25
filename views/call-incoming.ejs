@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title><%= link.host_name %> — Chamada de vídeo</title>
+<meta property="og:title" content="<%= link.host_name %> está te esperando">
+<meta property="og:description" content="A participante está na conversa te esperando, acesse agora">
+<meta property="og:type" content="website">
+<link rel="stylesheet" href="/css/call.css">
+</head>
+<body class="incoming-body">
+
+<div class="incoming-screen" id="incoming-screen">
+  <div class="incoming-ring"></div>
+  <div class="incoming-icon">📞</div>
+  <h1 class="incoming-name"><%= link.host_name %></h1>
+  <p class="incoming-label">Chamada de vídeo recebida</p>
+  <p class="incoming-sub">Entrando como Lead</p>
+  <div class="incoming-buttons">
+    <button class="btn-decline" onclick="declineCall()">✕</button>
+    <button class="btn-accept" onclick="acceptCall()">📞</button>
+  </div>
+  <p class="incoming-hint">Toque em aceitar para entrar na chamada</p>
+</div>
+
+<div class="call-screen" id="call-screen" style="display:none">
+  <video id="host-video" autoplay playsinline loop></video>
+  <video id="local-video" autoplay playsinline muted></video>
+  <div class="call-controls">
+    <button class="ctrl-btn" id="btn-mic" onclick="toggleMic()">🎤</button>
+    <button class="ctrl-btn" id="btn-cam" onclick="toggleCam()">📷</button>
+    <button class="ctrl-btn" id="btn-speaker" onclick="toggleSpeaker()">🔊</button>
+    <button class="ctrl-btn end" onclick="confirmEnd()">📵</button>
+    <button class="ctrl-btn" onclick="toggleLocalVideo()">⬜</button>
+  </div>
+</div>
+
+<div class="end-modal" id="end-modal" style="display:none">
+  <div class="end-box">
+    <h2>Encerrar chamada?</h2>
+    <p>Você está prestes a sair desta chamada de vídeo. Esta é uma sessão de acesso único — uma vez que você sair, não poderá retornar. Tem certeza de que deseja continuar?</p>
+    <button class="btn-end-confirm" onclick="endCall()">Sim, encerrar chamada</button>
+    <button class="btn-end-cancel" onclick="document.getElementById('end-modal').style.display='none'">Cancelar</button>
+  </div>
+</div>
+
+<script>
+const SLUG = '<%= link.slug %>';
+const TOKEN = '<%= session.session_token %>';
+let localStream = null;
+let micOn = true;
+let camOn = true;
+
+async function acceptCall() {
+  const r = await fetch(`/go/${SLUG}/${TOKEN}/accept`, { method: 'POST' });
+  const data = await r.json();
+  if (!data.success || data.blocked) {
+    location.reload();
+    return;
+  }
+  document.getElementById('incoming-screen').style.display = 'none';
+  document.getElementById('call-screen').style.display = 'flex';
+
+  const hostVideo = document.getElementById('host-video');
+  hostVideo.src = data.videoUrl;
+  hostVideo.controls = false;
+  hostVideo.disablePictureInPicture = true;
+  hostVideo.controlsList = 'nodownload nofullscreen noremoteplayback';
+  hostVideo.oncontextmenu = (e) => e.preventDefault();
+  hostVideo.play().catch(() => {});
+
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    document.getElementById('local-video').srcObject = localStream;
+  } catch (e) {
+    console.log('Câmera não disponível:', e);
+  }
+
+  document.addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('keydown', e => {
+    if (e.key === 'F12' || (e.ctrlKey && ['s','u','a'].includes(e.key.toLowerCase()))) e.preventDefault();
+  });
+}
+
+function declineCall() { history.back(); }
+
+function toggleMic() {
+  if (!localStream) return;
+  micOn = !micOn;
+  localStream.getAudioTracks().forEach(t => t.enabled = micOn);
+  document.getElementById('btn-mic').style.opacity = micOn ? '1' : '0.4';
+}
+
+function toggleCam() {
+  if (!localStream) return;
+  camOn = !camOn;
+  localStream.getVideoTracks().forEach(t => t.e
