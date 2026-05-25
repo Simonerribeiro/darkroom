@@ -51,8 +51,17 @@ router.get('/', requireAuth, (req, res) => {
 
   const stats = {
     totalModels: models.length,
-    totalCallTypes: db.prepare('SELECT COUNT(*) as count FROM call_types ct JOIN models m ON ct.model_id = m.id WHERE m.user_id = ?').get(req.session.userId).count,
-    activeSessions: db.prepare('SELECT COUNT(*) as count FROM sessions_calls sc JOIN call_types ct ON sc.call_type_id = ct.id JOIN models m ON ct.model_id = m.id WHERE m.user_id = ? AND sc.status = "active"').get(req.session.userId).count
+    totalCallTypes: db.prepare(`
+      SELECT COUNT(*) as count FROM call_types ct
+      JOIN models m ON ct.model_id = m.id
+      WHERE m.user_id = ?
+    `).get(req.session.userId).count,
+    activeSessions: db.prepare(`
+      SELECT COUNT(*) as count FROM sessions_calls sc
+      JOIN call_types ct ON sc.call_type_id = ct.id
+      JOIN models m ON ct.model_id = m.id
+      WHERE m.user_id = ? AND sc.status = 'active'
+    `).get(req.session.userId).count
   };
 
   res.render('dashboard', {
@@ -67,10 +76,10 @@ router.get('/', requireAuth, (req, res) => {
 router.get('/model/:id/sessions', requireAuth, (req, res) => {
   const sessions = db.prepare(`
     SELECT sc.*, ct.name as call_type_name,
-    CASE 
-      WHEN sc.started_at IS NOT NULL AND sc.ended_at IS NOT NULL 
+    CASE
+      WHEN sc.started_at IS NOT NULL AND sc.ended_at IS NOT NULL
       THEN ROUND((julianday(sc.ended_at) - julianday(sc.started_at)) * 24 * 60, 1)
-      ELSE NULL 
+      ELSE NULL
     END as duration_mins
     FROM sessions_calls sc
     JOIN call_types ct ON sc.call_type_id = ct.id
@@ -84,10 +93,10 @@ router.get('/model/:id/sessions', requireAuth, (req, res) => {
 router.get('/calltype/:id/sessions', requireAuth, (req, res) => {
   const sessions = db.prepare(`
     SELECT *,
-    CASE 
-      WHEN started_at IS NOT NULL AND ended_at IS NOT NULL 
+    CASE
+      WHEN started_at IS NOT NULL AND ended_at IS NOT NULL
       THEN ROUND((julianday(ended_at) - julianday(started_at)) * 24 * 60, 1)
-      ELSE NULL 
+      ELSE NULL
     END as duration_mins
     FROM sessions_calls
     WHERE call_type_id = ?
