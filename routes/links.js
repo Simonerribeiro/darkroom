@@ -44,11 +44,6 @@ router.post('/create', requireAuth, (req, res, next) => {
 }, (req, res) => {
   try {
     const { host_name, slug } = req.body;
-
-    console.log('host_name:', host_name);
-    console.log('slug:', slug);
-    console.log('file:', req.file ? req.file.path : 'nenhum');
-
     const videoUrl = req.file ? req.file.path : null;
     const videoPublicId = req.file ? req.file.filename : null;
 
@@ -71,9 +66,26 @@ router.post('/toggle/:id', requireAuth, (req, res) => {
   res.json({ success: true, active: !link.active });
 });
 
+router.post('/edit/:id', requireAuth, (req, res) => {
+  const { host_name } = req.body;
+  if (!host_name) return res.json({ success: false, error: 'Nome obrigatório' });
+  try {
+    db.prepare('UPDATE infinite_links SET host_name = ? WHERE id = ? AND user_id = ?')
+      .run(host_name, req.params.id, req.session.userId);
+    res.json({ success: true });
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
+});
+
 router.delete('/delete/:id', requireAuth, (req, res) => {
-  db.prepare('DELETE FROM infinite_links WHERE id = ?').run(req.params.id);
-  res.json({ success: true });
+  try {
+    db.prepare('DELETE FROM sessions_calls WHERE link_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM infinite_links WHERE id = ? AND user_id = ?').run(req.params.id, req.session.userId);
+    res.json({ success: true });
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
 });
 
 router.post('/share/:id', requireAuth, (req, res) => {
