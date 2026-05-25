@@ -18,11 +18,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const sessionMiddleware = session({
-  store: new SQLiteStore({ db: 'sessions.db', dir: process.env.RAILWAY_VOLUME_MOUNT_PATH || '.' }),
+  store: new SQLiteStore({
+    db: 'sessions.db',
+    dir: process.env.RAILWAY_VOLUME_MOUNT_PATH || '.'
+  }),
   secret: process.env.SESSION_SECRET || 'darkroom-secret-2024',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
+  rolling: true,
+  cookie: {
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+    httpOnly: true
+  }
 });
 
 app.use(sessionMiddleware);
