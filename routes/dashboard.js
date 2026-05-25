@@ -7,42 +7,56 @@ function requireAuth(req, res, next) {
   next();
 }
 
-router.get('/', requireAuth, (req, res) => {
-  const isAdmin = req.session.userRole === 'admin';
+function calcDuration(started_at, ended_at) {
+  if (!started_at || !ended_at) return null;
+  const start = new Date(started_at);
+  const end = new Date(ended_at);
+  const diff = Math.floor((end - start) / 1000);
+  const mins = Math.floor(diff / 60);
+  const secs = diff % 60;
+  return `${mins}m ${secs}s`;
+}
 
-  let links;
-  if (isAdmin) {
-    links = db.prepare(`
-      SELECT il.*, u.name as user_name,
-        COUNT(sc.id) as total_convs,
-        SUM(CASE WHEN sc.status = 'active' THEN 1 ELSE 0 END) as active_convs
-      FROM infinite_links il
-      LEFT JOIN users u ON il.user_id = u.id
-      LEFT JOIN sessions_calls sc ON sc.link_id = il.id
-      GROUP BY il.id
-      ORDER BY il.created_at DESC
-    `).all();
-  } else {
-    links = db.prepare(`
-      SELECT il.*,
-        COUNT(sc.id) as total_convs,
-        SUM(CASE WHEN sc.status = 'active' THEN 1 ELSE 0 END) as active_convs
-      FROM infinite_links il
-      LEFT JOIN sessions_calls sc ON sc.link_id = il.id
-      WHERE il.user_id = ?
-      GROUP BY il.id
-      ORDER BY il.created_at DESC
-    `).all(req.session.userId);
-  }
+router.get('/', requireAuth, (req, res) => {
+  const models = db.prepare(`
+    SELECT * FROM models WHERE user_id = ? ORDER BY sort_order ASC, created_at ASC
+  `).all(req.session.userId);
+
+  const modelsWithData = models.map(model => {
+    const callTypes = db.prepare(`
+      SELECT * FROM call_types WHERE model_id = ? ORDER BY sort_order ASC, created_at ASC
+    `).all(model.id);
+
+    const callTypesWithSessions = callTypes.map(ct => {
+      const lastSession = db.prepare(`
+        SELECT * FROM sessions_calls WHERE call_type_id = ? ORDER BY created_at DESC LIMIT 1
+      `).get(ct.id);
+
+      const totalSessions = db.prepare(`
+        SELECT COUNT(*) as count FROM sessions_calls WHERE call_type_id = ?
+      `).get(ct.id);
+
+      return {
+        ...ct,
+        lastSession: lastSession ? {
+          ...lastSession,
+          duration: calcDuration(lastSession.started_at, lastSession.ended_at)
+        } : null,
+        totalSessions: totalSessions.count
+      };
+    });
+
+    return { ...model, callTypes: callTypesWithSessions };
+  });
 
   const stats = {
-    activeLinks: links.filter(l => l.active).length,
-    totalConvs: links.reduce((a, l) => a + (l.total_convs || 0), 0),
-    activeConvs: links.reduce((a, l) => a + (l.active_convs || 0), 0)
+    totalModels: models.length,
+    totalCallTypes: db.prepare('SELECT COUNT(*) as count FROM call_types ct JOIN models m ON ct.model_id = m.id WHERE m.user_id = ?').get(req.session.userId).count,
+    activeSessions: db.prepare('SELECT COUNT(*) as count FROM sessions_calls sc JOIN call_types ct ON sc.call_type_id = ct.id JOIN models m ON ct.model_id = m.id WHERE m.user_id = ? AND sc.status = "active"').get(req.session.userId).count
   };
 
   res.render('dashboard', {
-    links,
+    models: modelsWithData,
     stats,
     userName: req.session.userName,
     userRole: req.session.userRole,
@@ -50,9 +64,35 @@ router.get('/', requireAuth, (req, res) => {
   });
 });
 
-router.get('/link/:id/sessions', requireAuth, (req, res) => {
+router.get('/model/:id/sessions', requireAuth, (req, res) => {
   const sessions = db.prepare(`
-    SELECT * FROM sessions_calls WHERE link_id = ? ORDER BY created_at DESC
+    SELECT sc.*, ct.name as call_type_name,
+    CASE 
+      WHEN sc.started_at IS NOT NULL AND sc.ended_at IS NOT NULL 
+      THEN ROUND((julianday(sc.ended_at) - julianday(sc.started_at)) * 24 * 60, 1)
+      ELSE NULL 
+    END as duration_mins
+    FROM sessions_calls sc
+    JOIN call_types ct ON sc.call_type_id = ct.id
+    WHERE ct.model_id = ?
+    ORDER BY sc.created_at DESC
+    LIMIT 50
+  `).all(req.params.id);
+  res.json(sessions);
+});
+
+router.get('/calltype/:id/sessions', requireAuth, (req, res) => {
+  const sessions = db.prepare(`
+    SELECT *,
+    CASE 
+      WHEN started_at IS NOT NULL AND ended_at IS NOT NULL 
+      THEN ROUND((julianday(ended_at) - julianday(started_at)) * 24 * 60, 1)
+      ELSE NULL 
+    END as duration_mins
+    FROM sessions_calls
+    WHERE call_type_id = ?
+    ORDER BY created_at DESC
+    LIMIT 20
   `).all(req.params.id);
   res.json(sessions);
 });
