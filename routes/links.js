@@ -19,14 +19,14 @@ function requireAuth(req, res, next) {
 router.post('/sign-upload', requireAuth, (req, res) => {
   try {
     const timestamp = Math.round(new Date().getTime() / 1000);
-    const params = {
+    const paramsToSign = {
       folder: 'darkroom/videos',
-      resource_type: 'video',
-      timestamp: timestamp,
-      eager: 'q_auto:good,f_mp4',
-      eager_async: 'true'
+      timestamp: timestamp
     };
-    const signature = cloudinary.utils.api_sign_request(params, process.env.CLOUDINARY_API_SECRET);
+    const signature = cloudinary.utils.api_sign_request(
+      paramsToSign,
+      process.env.CLOUDINARY_API_SECRET
+    );
     res.json({
       success: true,
       signature,
@@ -36,6 +36,7 @@ router.post('/sign-upload', requireAuth, (req, res) => {
       folder: 'darkroom/videos'
     });
   } catch (e) {
+    console.error('Sign error:', e.message);
     res.json({ success: false, error: e.message });
   }
 });
@@ -124,11 +125,17 @@ router.delete('/calltype/delete/:id', requireAuth, (req, res) => {
 router.post('/share/:callTypeId', requireAuth, (req, res) => {
   const callType = db.prepare('SELECT * FROM call_types WHERE id = ? AND active = 1').get(req.params.callTypeId);
   if (!callType) return res.json({ success: false, error: 'Tipo de chamada inativo' });
+
   const token = uuidv4();
-  db.prepare(`INSERT INTO sessions_calls (call_type_id, session_token, status) VALUES (?, ?, 'pending')`).run(callType.id, token);
+  db.prepare(`
+    INSERT INTO sessions_calls (call_type_id, session_token, status)
+    VALUES (?, ?, 'pending')
+  `).run(callType.id, token);
+
   const model = db.prepare('SELECT * FROM models WHERE id = ?').get(callType.model_id);
   const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
   const slug = `${model.id}-${callType.id}`;
+
   res.json({ success: true, url: `${baseUrl}/go/${slug}/${token}`, token });
 });
 
