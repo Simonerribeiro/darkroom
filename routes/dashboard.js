@@ -49,8 +49,17 @@ router.get('/', requireAuth, (req, res) => {
 
   const stats = {
     totalModels: models.length,
-    totalCallTypes: db.prepare('SELECT COUNT(*) as count FROM call_types ct JOIN models m ON ct.model_id = m.id WHERE m.user_id = ?').get(req.session.userId).count,
-    activeSessions: db.prepare('SELECT COUNT(*) as count FROM sessions_calls sc JOIN call_types ct ON sc.call_type_id = ct.id JOIN models m ON ct.model_id = m.id WHERE m.user_id = ? AND sc.status = "active"').get(req.session.userId).count
+    totalCallTypes: db.prepare(`
+      SELECT COUNT(*) as count FROM call_types ct
+      JOIN models m ON ct.model_id = m.id
+      WHERE m.user_id = ?
+    `).get(req.session.userId).count,
+    activeSessions: db.prepare(`
+      SELECT COUNT(*) as count FROM sessions_calls sc
+      JOIN call_types ct ON sc.call_type_id = ct.id
+      JOIN models m ON ct.model_id = m.id
+      WHERE m.user_id = ? AND sc.status = 'active'
+    `).get(req.session.userId).count
   };
 
   res.render('dashboard', {
