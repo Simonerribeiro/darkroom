@@ -2,12 +2,16 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
-const cloudinary = require('cloudinary').v2;
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+const s3 = new S3Client({
+  region: 'auto',
+  endpoint: process.env.R2_ENDPOINT,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY
+  }
 });
 
 function requireAuth(req, res, next) {
@@ -15,28 +19,24 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// Gerar assinatura para upload direto ao Cloudinary
-router.post('/sign-upload', requireAuth, (req, res) => {
+// Gerar URL assinada para upload direto ao R2
+router.post('/presign', requireAuth, async (req, res) => {
   try {
-    const timestamp = Math.round(new Date().getTime() / 1000);
-    const paramsToSign = {
-      folder: 'darkroom/videos',
-      timestamp: timestamp
-    };
-    const signature = cloudinary.utils.api_sign_request(
-      paramsToSign,
-      process.env.CLOUDINARY_API_SECRET
-    );
-    res.json({
-      success: true,
-      signature,
-      timestamp,
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      folder: 'darkroom/videos'
+    const { filename, contentType } = req.body;
+    const key = `videos/${uuidv4()}-${filename}`;
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: key,
+      ContentType: contentType
     });
+
+    const signedUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
+    const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
+
+    res.json({ success: true, signedUrl, publicUrl, key });
   } catch (e) {
-    console.error('Sign error:', e.message);
+    console.error('Presign error:', e.message);
     res.json({ success: false, error: e.message });
   }
 });
@@ -79,7 +79,7 @@ router.delete('/model/delete/:id', requireAuth, (req, res) => {
   }
 });
 
-// Criar tipo de chamada — recebe URL ja do Cloudinary
+// Criar tipo de chamada
 router.post('/calltype/create', requireAuth, (req, res) => {
   try {
     const { model_id, name, video_url, video_public_id } = req.body;
