@@ -112,9 +112,11 @@
       <button class="modal-close" id="btn-close-ct-modal">✕</button>
     </div>
     <p class="modal-sub">Ex: 3min Normal, 5min Fetiche Podo, 10min Lésbico</p>
-    <form id="form-calltype" enctype="multipart/form-data">
+    <form id="form-calltype">
       <input type="hidden" id="ct-model-id">
       <input type="hidden" id="ct-id">
+      <input type="hidden" id="ct-video-url">
+      <input type="hidden" id="ct-video-public-id">
       <div class="field">
         <label>Nome do Tipo *</label>
         <input type="text" id="ct-name" placeholder="Ex: 3min Normal" required>
@@ -122,11 +124,17 @@
       <div class="field">
         <label>Vídeo <span id="video-label-hint">(obrigatório para novo)</span></label>
         <div class="upload-zone" id="ct-upload-zone">
-          <div class="upload-icon">🎬</div>
-          <div id="ct-upload-label">Clique para adicionar vídeo</div>
+          <div class="upload-icon" id="ct-upload-icon">🎬</div>
+          <div id="ct-upload-label">Clique para selecionar vídeo</div>
           <div class="upload-sub">MP4, MOV, AVI, MKV, WebM • Máximo 500MB</div>
         </div>
-        <input type="file" name="video" id="ct-video-input" accept="video/*" style="display:none">
+        <input type="file" id="ct-video-input" accept="video/*" style="display:none">
+        <div id="ct-upload-progress" style="display:none">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progress-fill"></div>
+          </div>
+          <div class="progress-text" id="progress-text">Enviando... 0%</div>
+        </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-ghost" id="btn-cancel-ct">Cancelar</button>
@@ -145,13 +153,12 @@ function showToast(msg) {
   var t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(function() { t.classList.remove('show'); }, 3000);
+  setTimeout(function() { t.classList.remove('show'); }, 4000);
 }
 
 function showModal(id) { document.getElementById(id).classList.add('open'); }
 function hideModal(id) { document.getElementById(id).classList.remove('open'); }
 
-// Abrir modal nova modelo
 document.getElementById('btn-nova-modelo').addEventListener('click', function() {
   document.getElementById('modal-model-title').textContent = 'Nova Modelo';
   document.getElementById('model-id').value = '';
@@ -172,11 +179,16 @@ document.getElementById('btn-cancel-ct').addEventListener('click', function() { 
 document.getElementById('ct-upload-zone').addEventListener('click', function() {
   document.getElementById('ct-video-input').click();
 });
+
 document.getElementById('ct-video-input').addEventListener('change', function() {
-  if (this.files[0]) document.getElementById('ct-upload-label').textContent = '✓ ' + this.files[0].name;
+  if (this.files[0]) {
+    document.getElementById('ct-upload-label').textContent = '✓ ' + this.files[0].name;
+    document.getElementById('ct-upload-icon').textContent = '✅';
+    document.getElementById('ct-video-url').value = '';
+    document.getElementById('ct-video-public-id').value = '';
+  }
 });
 
-// Salvar modelo
 document.getElementById('form-model').addEventListener('submit', async function(e) {
   e.preventDefault();
   var id = document.getElementById('model-id').value;
@@ -192,23 +204,97 @@ document.getElementById('form-model').addEventListener('submit', async function(
   else showToast('Erro: ' + data.error);
 });
 
-// Salvar tipo de chamada
 document.getElementById('form-calltype').addEventListener('submit', async function(e) {
   e.preventDefault();
   var id = document.getElementById('ct-id').value;
+  var name = document.getElementById('ct-name').value;
+  var modelId = document.getElementById('ct-model-id').value;
+  var videoUrl = document.getElementById('ct-video-url').value;
+  var videoPublicId = document.getElementById('ct-video-public-id').value;
+  var file = document.getElementById('ct-video-input').files[0];
+
   var btn = document.getElementById('btn-save-ct');
-  btn.textContent = 'Enviando...';
   btn.disabled = true;
-  var fd = new FormData(this);
-  fd.append('name', document.getElementById('ct-name').value);
-  fd.append('model_id', document.getElementById('ct-model-id').value);
-  var url = id ? '/links/calltype/edit/' + id : '/links/calltype/create';
+  btn.textContent = 'Aguarde...';
+
+  // Se tem arquivo novo, fazer upload direto para Cloudinary
+  if (file) {
+    try {
+      // Pegar assinatura do servidor
+      showToast('Obtendo autorizacao de upload...');
+      var signRes = await fetch('/links/sign-upload', { method: 'POST' });
+      var signData = await signRes.json();
+      if (!signData.success) throw new Error(signData.error);
+
+      // Upload direto para Cloudinary com barra de progresso
+      document.getElementById('ct-upload-progress').style.display = 'block';
+      showToast('Enviando video... aguarde');
+
+      var formData = new FormData();
+      formData.append('file', file);
+      formData.append('api_key', signData.api_key);
+      formData.append('timestamp', signData.timestamp);
+      formData.append('signature', signData.signature);
+      formData.append('folder', signData.folder);
+      formData.append('eager', 'q_auto:good,f_mp4');
+      formData.append('eager_async', 'true');
+      formData.append('resource_type', 'video');
+
+      var xhr = new XMLHttpRequest();
+      var cloudUrl = 'https://api.cloudinary.com/v1_1/' + signData.cloud_name + '/video/upload';
+
+      xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+          var pct = Math.round((e.loaded / e.total) * 100);
+          document.getElementById('progress-fill').style.width = pct + '%';
+          document.getElementById('progress-text').textContent = 'Enviando... ' + pct + '%';
+        }
+      });
+
+      var uploadResult = await new Promise(function(resolve, reject) {
+        xhr.onload = function() {
+          if (xhr.status === 200) resolve(JSON.parse(xhr.responseText));
+          else reject(new Error('Upload falhou: ' + xhr.status));
+        };
+        xhr.onerror = function() { reject(new Error('Erro de conexao')); };
+        xhr.open('POST', cloudUrl);
+        xhr.send(formData);
+      });
+
+      videoUrl = uploadResult.secure_url;
+      videoPublicId = uploadResult.public_id;
+      document.getElementById('progress-text').textContent = 'Upload concluido!';
+
+    } catch (err) {
+      showToast('Erro no upload: ' + err.message);
+      btn.disabled = false;
+      btn.textContent = 'Salvar';
+      return;
+    }
+  }
+
+  // Salvar no banco
   try {
-    var r = await fetch(url, { method: 'POST', body: fd });
+    var saveUrl = id ? '/links/calltype/edit/' + id : '/links/calltype/create';
+    var r = await fetch(saveUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model_id: modelId, name, video_url: videoUrl, video_public_id: videoPublicId })
+    });
     var data = await r.json();
-    if (data.success) { showToast('Salvo com sucesso!'); location.reload(); }
-    else { showToast('Erro: ' + data.error); btn.textContent = 'Salvar'; btn.disabled = false; }
-  } catch(err) { showToast('Erro de conexão'); btn.textContent = 'Salvar'; btn.disabled = false; }
+    if (data.success) {
+      showToast('Salvo com sucesso!');
+      setTimeout(function() { location.reload(); }, 1200);
+    } else {
+      showToast('Erro: ' + (data.error || 'Tente novamente'));
+      btn.disabled = false;
+      btn.textContent = 'Salvar';
+    }
+  } catch (err) {
+    showToast('Erro de conexao');
+    btn.disabled = false;
+    btn.textContent = 'Salvar';
+  }
 });
 
 document.addEventListener('click', async function(e) {
@@ -242,9 +328,13 @@ document.addEventListener('click', async function(e) {
     document.getElementById('ct-model-id').value = addCt;
     document.getElementById('ct-id').value = '';
     document.getElementById('ct-name').value = '';
-    document.getElementById('ct-upload-label').textContent = 'Clique para adicionar vídeo';
-    document.getElementById('video-label-hint').textContent = '(obrigatório para novo)';
+    document.getElementById('ct-upload-label').textContent = 'Clique para selecionar vídeo';
+    document.getElementById('ct-upload-icon').textContent = '🎬';
+    document.getElementById('ct-video-url').value = '';
+    document.getElementById('ct-video-public-id').value = '';
     document.getElementById('ct-video-input').value = '';
+    document.getElementById('ct-upload-progress').style.display = 'none';
+    document.getElementById('video-label-hint').textContent = '(obrigatório para novo)';
     showModal('modal-calltype');
   }
 
@@ -252,8 +342,12 @@ document.addEventListener('click', async function(e) {
     document.getElementById('modal-ct-title').textContent = 'Editar Tipo de Chamada';
     document.getElementById('ct-id').value = editCt;
     document.getElementById('ct-name').value = e.target.getAttribute('data-ct-name');
-    document.getElementById('video-label-hint').textContent = '(opcional — só se quiser trocar)';
     document.getElementById('ct-upload-label').textContent = 'Clique para trocar o vídeo';
+    document.getElementById('ct-upload-icon').textContent = '🎬';
+    document.getElementById('ct-video-url').value = '';
+    document.getElementById('ct-video-input').value = '';
+    document.getElementById('ct-upload-progress').style.display = 'none';
+    document.getElementById('video-label-hint').textContent = '(opcional — só se quiser trocar)';
     showModal('modal-calltype');
   }
 
