@@ -3,7 +3,7 @@ const router = express.Router();
 const db = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+const multer = require('multer');
 
 const s3 = new S3Client({
   region: 'auto',
@@ -14,32 +14,34 @@ const s3 = new S3Client({
   }
 });
 
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 600 * 1024 * 1024 }
+});
+
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.redirect('/');
   next();
 }
 
-// Gerar URL assinada para upload direto ao R2
-router.post('/presign', requireAuth, async (req, res) => {
+// Upload de vídeo para R2
+router.post('/upload-video', requireAuth, upload.single('video'), async (req, res) => {
   try {
-    const { filename, contentType } = req.body;
-    const key = `videos/${uuidv4()}-${filename}`;
+    if (!req.file) return res.json({ success: false, error: 'Nenhum arquivo enviado' });
 
-    const command = new PutObjectCommand({
+    const key = `videos/${uuidv4()}-${req.file.originalname}`;
+
+    await s3.send(new PutObjectCommand({
       Bucket: process.env.R2_BUCKET,
       Key: key,
-      ContentType: contentType
-    });
-
-    const signedUrl = await getSignedUrl(s3, command, {
-      expiresIn: 3600,
-      unhoistableHeaders: new Set(['content-type'])
-    });
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype
+    }));
 
     const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
-    res.json({ success: true, signedUrl, publicUrl, key });
+    res.json({ success: true, url: publicUrl, key });
   } catch (e) {
-    console.error('Presign error:', e.message);
+    console.error('Upload error:', e.message);
     res.json({ success: false, error: e.message });
   }
 });
