@@ -24,10 +24,8 @@ body { background: #000; color: #fff; font-family: Arial, sans-serif; height: 10
 
 #call-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; }
 
-/* Video escondido - só usado para decodificar */
 #host-video { display: none; }
 
-/* Canvas renderiza o vídeo - sem controles, sem download */
 #host-canvas {
   position: absolute;
   top: 0; left: 0;
@@ -68,9 +66,7 @@ body { background: #000; color: #fff; font-family: Arial, sans-serif; height: 10
 </div>
 
 <div id="call-screen">
-  <!-- Vídeo escondido - decodifica mas não aparece -->
   <video id="host-video" autoplay playsinline loop muted webkit-playsinline crossorigin="anonymous"></video>
-  <!-- Canvas mostra o vídeo sem controles -->
   <canvas id="host-canvas"></canvas>
   <video id="local-video" autoplay playsinline muted webkit-playsinline></video>
   <div class="call-controls">
@@ -93,12 +89,25 @@ body { background: #000; color: #fff; font-family: Arial, sans-serif; height: 10
 <script>
 var SLUG = '<%= link.slug %>';
 var TOKEN = '<%= session.session_token %>';
+var VIDEO_URL = '<%= link.video_url %>';
 var localStream = null;
 var micOn = true;
 var camOn = true;
 var speakerOn = true;
 var callActive = false;
 var animFrame = null;
+var videoReady = false;
+
+// Pré-carrega o vídeo assim que a página abre
+var hostVideo = document.getElementById('host-video');
+if (VIDEO_URL && VIDEO_URL !== 'null' && VIDEO_URL !== '') {
+  hostVideo.src = VIDEO_URL;
+  hostVideo.muted = true;
+  hostVideo.load();
+  hostVideo.addEventListener('canplaythrough', function() {
+    videoReady = true;
+  });
+}
 
 // Intercepta botão voltar do Android
 window.history.pushState(null, null, window.location.href);
@@ -109,10 +118,8 @@ window.addEventListener('popstate', function() {
   }
 });
 
-// Bloqueia clique direito
 document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 
-// Bloqueia atalhos de teclado
 document.addEventListener('keydown', function(e) {
   if (e.key === 'F12' || (e.ctrlKey && ['s','u','a','c'].includes(e.key.toLowerCase()))) {
     e.preventDefault();
@@ -166,14 +173,12 @@ document.getElementById('btn-cam').addEventListener('click', function(e) {
 
 document.getElementById('btn-speaker').addEventListener('click', function(e) {
   e.preventDefault();
-  var v = document.getElementById('host-video');
   speakerOn = !speakerOn;
-  v.muted = !speakerOn;
+  hostVideo.muted = !speakerOn;
   this.textContent = speakerOn ? '🔊' : '🔇';
 });
 
 function renderCanvas() {
-  var video = document.getElementById('host-video');
   var canvas = document.getElementById('host-canvas');
   var ctx = canvas.getContext('2d');
 
@@ -181,19 +186,17 @@ function renderCanvas() {
   canvas.height = window.innerHeight;
 
   function draw() {
-    if (video.readyState >= 2) {
-      var vw = video.videoWidth;
-      var vh = video.videoHeight;
+    if (hostVideo.readyState >= 2) {
+      var vw = hostVideo.videoWidth;
+      var vh = hostVideo.videoHeight;
       var cw = canvas.width;
       var ch = canvas.height;
-
       var scale = Math.max(cw / vw, ch / vh);
       var nw = vw * scale;
       var nh = vh * scale;
       var nx = (cw - nw) / 2;
       var ny = (ch - nh) / 2;
-
-      ctx.drawImage(video, nx, ny, nw, nh);
+      ctx.drawImage(hostVideo, nx, ny, nw, nh);
     }
     animFrame = requestAnimationFrame(draw);
   }
@@ -210,21 +213,16 @@ async function acceptCall() {
     document.getElementById('incoming-screen').style.display = 'none';
     document.getElementById('call-screen').style.display = 'block';
 
-    var hostVideo = document.getElementById('host-video');
-    hostVideo.src = data.videoUrl;
+    // Vídeo já foi pré-carregado — só dá play
     hostVideo.muted = true;
-    hostVideo.load();
-
-    hostVideo.addEventListener('canplay', function() {
-      hostVideo.play().then(function() {
-        hostVideo.muted = false;
-        speakerOn = true;
-        renderCanvas();
-      }).catch(function() {
-        hostVideo.muted = true;
-        hostVideo.play();
-        renderCanvas();
-      });
+    hostVideo.play().then(function() {
+      hostVideo.muted = false;
+      speakerOn = true;
+      renderCanvas();
+    }).catch(function() {
+      hostVideo.muted = true;
+      hostVideo.play();
+      renderCanvas();
     });
 
     window.addEventListener('resize', function() {
