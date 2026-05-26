@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Darkroom</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/css/main.css">
 </head>
 <body class="app-body">
@@ -17,128 +16,128 @@
 </div>
 <div class="layout">
   <aside class="sidebar">
-    <a href="/dashboard" class="sidebar-item active">⬛ Modelos</a>
+    <a href="/dashboard" class="sidebar-item active">∞ Links Infinitos</a>
     <a href="/logout" class="sidebar-item">↩ Sair</a>
   </aside>
   <main class="content">
     <div class="page-header">
       <div>
-        <h1 class="page-title">⬛ Modelos</h1>
+        <h1 class="page-title">∞ Link Infinito</h1>
+        <p class="page-sub">Visualize todas as conversas criadas através dos Links Infinitos</p>
         <div class="page-meta">
-          <span><b><%= stats.totalModels %></b> modelos</span>
+          <span><b><%= stats.activeLinks %></b> links ativos</span>
           <span>•</span>
-          <span><b><%= stats.totalCallTypes %></b> tipos de chamada</span>
+          <span><b><%= stats.totalConvs %></b> conversas geradas</span>
           <span>•</span>
-          <span><b><%= stats.activeSessions %></b> ao vivo agora</span>
+          <span><b><%= stats.activeConvs %></b> conversas ativas</span>
         </div>
       </div>
-      <button class="btn-orange" id="btn-nova-modelo">+ Nova Modelo</button>
+      <button class="btn-orange" id="btn-novo-link">+ Novo Link Infinito</button>
     </div>
-
-    <div class="models-grid" id="models-grid">
-      <% models.forEach(function(model) { %>
-      <div class="model-card" id="model-<%= model.id %>">
-        <div class="model-header">
-          <div class="model-avatar" style="background:<%= model.avatar_color %>">
-            <%= model.name.substring(0,2).toUpperCase() %>
-          </div>
-          <div class="model-info">
-            <div class="model-name"><%= model.name %></div>
-            <div class="model-stats"><%= model.callTypes.length %> tipos de chamada</div>
-          </div>
-          <div class="model-actions">
-            <button class="btn-icon" data-edit-model="<%= model.id %>" data-name="<%= model.name %>">✏️</button>
-            <button class="btn-icon danger" data-delete-model="<%= model.id %>">🗑️</button>
-          </div>
-        </div>
-
-        <div class="calltypes-list">
-          <% model.callTypes.forEach(function(ct) { %>
-          <div class="calltype-row" id="ct-<%= ct.id %>">
-            <div class="calltype-name"><%= ct.name %></div>
-            <div class="calltype-actions">
-              <button class="btn-share" data-share="<%= ct.id %>" title="Gerar link">+</button>
-              <input type="text" class="link-field" id="link-<%= ct.id %>" placeholder="Link gerado aqui..." readonly>
-              <button class="btn-copy" data-copy="<%= ct.id %>" title="Copiar">⎘</button>
-              <button class="btn-history" data-history="<%= ct.id %>" title="Histórico">▾</button>
-              <button class="btn-icon" data-edit-ct="<%= ct.id %>" data-ct-name="<%= ct.name %>">✏️</button>
-              <button class="btn-icon danger" data-delete-ct="<%= ct.id %>">🗑️</button>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Links Ativos</div>
+        <div class="stat-value orange"><%= stats.activeLinks %></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Conversas Geradas</div>
+        <div class="stat-value"><%= stats.totalConvs %></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Ao Vivo Agora</div>
+        <div class="stat-value green"><%= stats.activeConvs %></div>
+      </div>
+    </div>
+    <div class="links-list" id="links-list">
+      <% links.forEach(function(link) { %>
+      <div class="link-card" id="link-<%= link.id %>">
+        <div class="link-card-header">
+          <div class="host-info">
+            <div class="avatar"><%= link.host_name.substring(0,2).toUpperCase() %></div>
+            <div>
+              <div class="host-name"><%= link.host_name %></div>
+              <div class="host-slug">
+                go/<%= link.slug %>
+                <span class="badge <%= link.active ? 'badge-active' : 'badge-inactive' %>">
+                  <%= link.active ? 'Ativo' : 'Inativo' %>
+                </span>
+              </div>
             </div>
-            <div class="history-panel" id="history-<%= ct.id %>" style="display:none"></div>
           </div>
-          <% }) %>
+          <div class="link-actions">
+            <button class="btn-icon danger" data-toggle="<%= link.id %>" title="Ativar/Desativar">⏻</button>
+            <button class="btn-icon" data-copy-api="<%= link.slug %>">⎘ API</button>
+            <button class="btn-icon orange" data-share="<%= link.id %>">🔗 Compartilhar</button>
+            <button class="btn-icon" data-sessions="<%= link.id %>">Ver Detalhes ▾</button>
+            <button class="btn-icon" data-edit="<%= link.id %>" data-name="<%= link.host_name %>">✏️</button>
+            <button class="btn-icon danger" data-delete="<%= link.id %>">🗑️</button>
+          </div>
         </div>
-
-        <button class="btn-add-calltype" data-model-id="<%= model.id %>">+ Adicionar tipo de chamada</button>
+        <div class="sessions-panel" id="sessions-<%= link.id %>" style="display:none">
+          <div class="sessions-loading">Carregando...</div>
+        </div>
       </div>
       <% }) %>
-
-      <div class="model-card model-card-new" id="btn-nova-modelo-card">
-        <div class="new-model-inner">
-          <div class="new-model-icon">+</div>
-          <div>Nova Modelo</div>
-        </div>
+      <% if (links.length === 0) { %>
+      <div class="empty-state">
+        <div class="empty-icon">∞</div>
+        <p>Nenhum link criado ainda</p>
+        <button class="btn-orange" id="btn-primeiro-link">Criar primeiro link</button>
       </div>
+      <% } %>
     </div>
   </main>
 </div>
 
-<!-- Modal nova/editar modelo -->
-<div class="modal-overlay" id="modal-model">
+<div class="modal-overlay" id="modal-new-link">
   <div class="modal">
     <div class="modal-header">
-      <h2 id="modal-model-title">Nova Modelo</h2>
-      <button class="modal-close" id="btn-close-model-modal">✕</button>
+      <h2>∞ Novo Link Infinito</h2>
+      <button class="modal-close" id="btn-close-modal">✕</button>
     </div>
-    <form id="form-model">
-      <input type="hidden" id="model-id">
+    <p class="modal-sub">Crie um link fixo que gera automaticamente uma nova chamada a cada acesso</p>
+    <form id="form-new-link">
       <div class="field">
-        <label>Nome da Modelo *</label>
-        <input type="text" id="model-name" placeholder="Ex: Bruna" required>
+        <label>Nome do Host *</label>
+        <input type="text" name="host_name" placeholder="Ex: Bruna" required>
+      </div>
+      <div class="field">
+        <label>Slug do Link *</label>
+        <input type="text" name="slug" placeholder="meu-link-unico" id="slug-input" required>
+        <div class="slug-preview">Seu link: <span id="slug-preview">darkroom.app/go/seu-slug</span></div>
+      </div>
+      <div class="field">
+        <label>Vídeo do Host *</label>
+        <div class="upload-zone" id="upload-zone">
+          <div class="upload-icon">🎬</div>
+          <div id="upload-label">Clique para adicionar vídeo</div>
+          <div class="upload-sub">MP4, MOV, AVI, MKV, WebM • Máximo 100MB</div>
+        </div>
+        <input type="file" id="video-input" accept="video/*" style="display:none">
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn-ghost" id="btn-cancel-model">Cancelar</button>
-        <button type="submit" class="btn-orange" id="btn-save-model">Criar Modelo</button>
+        <button type="button" class="btn-ghost" id="btn-cancel">Cancelar</button>
+        <button type="submit" class="btn-orange" id="btn-create">Criar Link Infinito</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- Modal novo/editar tipo de chamada -->
-<div class="modal-overlay" id="modal-calltype">
+<div class="modal-overlay" id="modal-edit-link">
   <div class="modal">
     <div class="modal-header">
-      <h2 id="modal-ct-title">Novo Tipo de Chamada</h2>
-      <button class="modal-close" id="btn-close-ct-modal">✕</button>
+      <h2>✏️ Editar Link</h2>
+      <button class="modal-close" id="btn-close-edit">✕</button>
     </div>
-    <p class="modal-sub">Ex: 3min Normal, 5min Fetiche Podo, 10min Lésbico</p>
-    <form id="form-calltype">
-      <input type="hidden" id="ct-model-id">
-      <input type="hidden" id="ct-id">
-      <input type="hidden" id="ct-video-url">
-      <input type="hidden" id="ct-video-public-id">
+    <form id="form-edit-link">
+      <input type="hidden" id="edit-link-id">
       <div class="field">
-        <label>Nome do Tipo *</label>
-        <input type="text" id="ct-name" placeholder="Ex: 3min Normal" required>
-      </div>
-      <div class="field">
-        <label>Vídeo <span id="video-label-hint">(obrigatório para novo)</span></label>
-        <div class="upload-zone" id="ct-upload-zone">
-          <div class="upload-icon" id="ct-upload-icon">🎬</div>
-          <div id="ct-upload-label">Clique para selecionar vídeo</div>
-          <div class="upload-sub">MP4, MOV, AVI, MKV, WebM • Máximo 500MB</div>
-        </div>
-        <input type="file" id="ct-video-input" accept="video/*" style="display:none">
-        <div id="ct-upload-progress" style="display:none">
-          <div class="progress-bar-bg">
-            <div class="progress-bar-fill" id="progress-fill"></div>
-          </div>
-          <div class="progress-text" id="progress-text">Enviando... 0%</div>
-        </div>
+        <label>Nome do Host *</label>
+        <input type="text" id="edit-host-name" placeholder="Ex: Bruna" required>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn-ghost" id="btn-cancel-ct">Cancelar</button>
-        <button type="submit" class="btn-orange" id="btn-save-ct">Salvar</button>
+        <button type="button" class="btn-ghost" id="btn-cancel-edit">Cancelar</button>
+        <button type="submit" class="btn-orange">Salvar alterações</button>
       </div>
     </form>
   </div>
@@ -149,257 +148,195 @@
 <script>
 var BASE_URL = '<%= baseUrl %>';
 
+function showModal() { document.getElementById('modal-new-link').classList.add('open'); }
+function hideModal() { document.getElementById('modal-new-link').classList.remove('open'); }
+function showEditModal() { document.getElementById('modal-edit-link').classList.add('open'); }
+function hideEditModal() { document.getElementById('modal-edit-link').classList.remove('open'); }
+
 function showToast(msg) {
   var t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(function() { t.classList.remove('show'); }, 4000);
+  setTimeout(function() { t.classList.remove('show'); }, 3000);
 }
 
-function showModal(id) { document.getElementById(id).classList.add('open'); }
-function hideModal(id) { document.getElementById(id).classList.remove('open'); }
+document.getElementById('btn-novo-link').addEventListener('click', showModal);
+var btnPrimeiro = document.getElementById('btn-primeiro-link');
+if (btnPrimeiro) btnPrimeiro.addEventListener('click', showModal);
+document.getElementById('btn-close-modal').addEventListener('click', hideModal);
+document.getElementById('btn-cancel').addEventListener('click', hideModal);
+document.getElementById('btn-close-edit').addEventListener('click', hideEditModal);
+document.getElementById('btn-cancel-edit').addEventListener('click', hideEditModal);
 
-document.getElementById('btn-nova-modelo').addEventListener('click', function() {
-  document.getElementById('modal-model-title').textContent = 'Nova Modelo';
-  document.getElementById('model-id').value = '';
-  document.getElementById('model-name').value = '';
-  document.getElementById('btn-save-model').textContent = 'Criar Modelo';
-  showModal('modal-model');
+document.getElementById('slug-input').addEventListener('input', function() {
+  var v = this.value || 'seu-slug';
+  document.getElementById('slug-preview').textContent = BASE_URL + '/go/' + v;
 });
 
-document.getElementById('btn-nova-modelo-card').addEventListener('click', function() {
-  document.getElementById('btn-nova-modelo').click();
+document.getElementById('upload-zone').addEventListener('click', function() {
+  document.getElementById('video-input').click();
 });
 
-document.getElementById('btn-close-model-modal').addEventListener('click', function() { hideModal('modal-model'); });
-document.getElementById('btn-cancel-model').addEventListener('click', function() { hideModal('modal-model'); });
-document.getElementById('btn-close-ct-modal').addEventListener('click', function() { hideModal('modal-calltype'); });
-document.getElementById('btn-cancel-ct').addEventListener('click', function() { hideModal('modal-calltype'); });
-
-document.getElementById('ct-upload-zone').addEventListener('click', function() {
-  document.getElementById('ct-video-input').click();
-});
-
-document.getElementById('ct-video-input').addEventListener('change', function() {
+document.getElementById('video-input').addEventListener('change', function() {
   if (this.files[0]) {
-    document.getElementById('ct-upload-label').textContent = '✓ ' + this.files[0].name;
-    document.getElementById('ct-upload-icon').textContent = '✅';
-    document.getElementById('ct-video-url').value = '';
-    document.getElementById('ct-video-public-id').value = '';
+    document.getElementById('upload-label').textContent = '✓ ' + this.files[0].name;
   }
 });
 
-document.getElementById('form-model').addEventListener('submit', async function(e) {
+document.getElementById('form-new-link').addEventListener('submit', async function(e) {
   e.preventDefault();
-  var id = document.getElementById('model-id').value;
-  var name = document.getElementById('model-name').value;
-  var url = id ? '/links/model/edit/' + id : '/links/model/create';
-  var r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name })
-  });
-  var data = await r.json();
-  if (data.success) { showToast(id ? 'Modelo atualizada!' : 'Modelo criada!'); location.reload(); }
-  else showToast('Erro: ' + data.error);
-});
+  var btn = document.getElementById('btn-create');
+  var hostName = this.querySelector('[name="host_name"]').value;
+  var slug = this.querySelector('[name="slug"]').value;
+  var videoFile = document.getElementById('video-input').files[0];
 
-document.getElementById('form-calltype').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  var id = document.getElementById('ct-id').value;
-  var name = document.getElementById('ct-name').value;
-  var modelId = document.getElementById('ct-model-id').value;
-  var videoUrl = document.getElementById('ct-video-url').value;
-  var videoPublicId = document.getElementById('ct-video-public-id').value;
-  var file = document.getElementById('ct-video-input').files[0];
+  if (!videoFile) {
+    showToast('Selecione um vídeo');
+    return;
+  }
 
-  var btn = document.getElementById('btn-save-ct');
+  btn.textContent = 'Enviando vídeo...';
   btn.disabled = true;
-  btn.textContent = 'Aguarde...';
 
-  // Se tem arquivo novo, fazer upload direto para Cloudinary
-  if (file) {
-    try {
-      // Pegar assinatura do servidor
-      showToast('Obtendo autorizacao de upload...');
-      var signRes = await fetch('/links/sign-upload', { method: 'POST' });
-      var signData = await signRes.json();
-      if (!signData.success) throw new Error(signData.error);
+  try {
+    // 1. Upload direto para o Cloudinary (sem passar pelo Railway)
+    var cloudForm = new FormData();
+    cloudForm.append('file', videoFile);
+    cloudForm.append('upload_preset', 'darkroom_videos');
 
-      // Upload direto para Cloudinary com barra de progresso
-      document.getElementById('ct-upload-progress').style.display = 'block';
-      showToast('Enviando video... aguarde');
+    var uploadLabel = document.getElementById('upload-label');
 
-      var formData = new FormData();
-      formData.append('file', file);
-      formData.append('api_key', signData.api_key);
-      formData.append('timestamp', signData.timestamp);
-      formData.append('signature', signData.signature);
-      formData.append('folder', signData.folder);
-      formData.append('eager', 'q_auto:good,f_mp4');
-      formData.append('eager_async', 'true');
-      formData.append('resource_type', 'video');
-
+    var videoUrl = await new Promise(function(resolve, reject) {
       var xhr = new XMLHttpRequest();
-      var cloudUrl = 'https://api.cloudinary.com/v1_1/' + signData.cloud_name + '/video/upload';
-
-      xhr.upload.addEventListener('progress', function(e) {
-        if (e.lengthComputable) {
-          var pct = Math.round((e.loaded / e.total) * 100);
-          document.getElementById('progress-fill').style.width = pct + '%';
-          document.getElementById('progress-text').textContent = 'Enviando... ' + pct + '%';
+      xhr.upload.addEventListener('progress', function(ev) {
+        if (ev.lengthComputable) {
+          var pct = Math.round((ev.loaded / ev.total) * 100);
+          btn.textContent = 'Enviando vídeo... ' + pct + '%';
+          if (uploadLabel) uploadLabel.textContent = 'Enviando... ' + pct + '%';
         }
       });
-
-      var uploadResult = await new Promise(function(resolve, reject) {
-        xhr.onload = function() {
-          if (xhr.status === 200) resolve(JSON.parse(xhr.responseText));
-          else reject(new Error('Upload falhou: ' + xhr.status));
-        };
-        xhr.onerror = function() { reject(new Error('Erro de conexao')); };
-        xhr.open('POST', cloudUrl);
-        xhr.send(formData);
+      xhr.addEventListener('load', function() {
+        if (xhr.status === 200) {
+          var result = JSON.parse(xhr.responseText);
+          resolve(result.secure_url);
+        } else {
+          reject(new Error('Cloudinary erro ' + xhr.status + ': ' + xhr.responseText));
+        }
       });
+      xhr.addEventListener('error', function() { reject(new Error('Falha de rede')); });
+      xhr.open('POST', 'https://api.cloudinary.com/v1_1/di0u5vsaq/video/upload');
+      xhr.send(cloudForm);
+    });
 
-      videoUrl = uploadResult.secure_url;
-      videoPublicId = uploadResult.public_id;
-      document.getElementById('progress-text').textContent = 'Upload concluido!';
-
-    } catch (err) {
-      showToast('Erro no upload: ' + err.message);
-      btn.disabled = false;
-      btn.textContent = 'Salvar';
-      return;
-    }
-  }
-
-  // Salvar no banco
-  try {
-    var saveUrl = id ? '/links/calltype/edit/' + id : '/links/calltype/create';
-    var r = await fetch(saveUrl, {
+    // 2. Salva no banco via servidor (só JSON, sem arquivo — bem rápido)
+    btn.textContent = 'Salvando...';
+    var r = await fetch('/links/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model_id: modelId, name, video_url: videoUrl, video_public_id: videoPublicId })
+      body: JSON.stringify({ host_name: hostName, slug: slug, video_url: videoUrl })
+    });
+    var data = await r.json();
+
+    if (data.success) {
+      showToast('Link criado com sucesso!');
+      setTimeout(function() { location.reload(); }, 1500);
+    } else {
+      showToast('Erro: ' + (data.error || 'Tente novamente'));
+      btn.textContent = 'Criar Link Infinito';
+      btn.disabled = false;
+    }
+  } catch(err) {
+    showToast('Erro: ' + err.message);
+    btn.textContent = 'Criar Link Infinito';
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('form-edit-link').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var id = document.getElementById('edit-link-id').value;
+  var name = document.getElementById('edit-host-name').value;
+  try {
+    var r = await fetch('/links/edit/' + id, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ host_name: name })
     });
     var data = await r.json();
     if (data.success) {
-      showToast('Salvo com sucesso!');
-      setTimeout(function() { location.reload(); }, 1200);
+      showToast('Link atualizado!');
+      setTimeout(function() { location.reload(); }, 1000);
     } else {
-      showToast('Erro: ' + (data.error || 'Tente novamente'));
-      btn.disabled = false;
-      btn.textContent = 'Salvar';
+      showToast('Erro ao atualizar');
     }
-  } catch (err) {
-    showToast('Erro de conexao');
-    btn.disabled = false;
-    btn.textContent = 'Salvar';
+  } catch(err) {
+    showToast('Erro de conexão');
   }
 });
 
 document.addEventListener('click', async function(e) {
-  var editModel = e.target.getAttribute('data-edit-model');
-  var deleteModel = e.target.getAttribute('data-delete-model');
-  var addCt = e.target.getAttribute('data-model-id');
-  var editCt = e.target.getAttribute('data-edit-ct');
-  var deleteCt = e.target.getAttribute('data-delete-ct');
+  var toggleId = e.target.getAttribute('data-toggle');
   var shareId = e.target.getAttribute('data-share');
-  var copyId = e.target.getAttribute('data-copy');
-  var historyId = e.target.getAttribute('data-history');
+  var copyApi = e.target.getAttribute('data-copy-api');
+  var sessionsId = e.target.getAttribute('data-sessions');
+  var deleteId = e.target.getAttribute('data-delete');
+  var editId = e.target.getAttribute('data-edit');
+  var editName = e.target.getAttribute('data-name');
 
-  if (editModel) {
-    document.getElementById('modal-model-title').textContent = 'Editar Modelo';
-    document.getElementById('model-id').value = editModel;
-    document.getElementById('model-name').value = e.target.getAttribute('data-name');
-    document.getElementById('btn-save-model').textContent = 'Salvar';
-    showModal('modal-model');
-  }
-
-  if (deleteModel) {
-    if (confirm('Deletar esta modelo e todos os seus tipos de chamada?')) {
-      var r = await fetch('/links/model/delete/' + deleteModel, { method: 'DELETE' });
-      var data = await r.json();
-      if (data.success) { showToast('Modelo deletada!'); location.reload(); }
-    }
-  }
-
-  if (addCt) {
-    document.getElementById('modal-ct-title').textContent = 'Novo Tipo de Chamada';
-    document.getElementById('ct-model-id').value = addCt;
-    document.getElementById('ct-id').value = '';
-    document.getElementById('ct-name').value = '';
-    document.getElementById('ct-upload-label').textContent = 'Clique para selecionar vídeo';
-    document.getElementById('ct-upload-icon').textContent = '🎬';
-    document.getElementById('ct-video-url').value = '';
-    document.getElementById('ct-video-public-id').value = '';
-    document.getElementById('ct-video-input').value = '';
-    document.getElementById('ct-upload-progress').style.display = 'none';
-    document.getElementById('video-label-hint').textContent = '(obrigatório para novo)';
-    showModal('modal-calltype');
-  }
-
-  if (editCt) {
-    document.getElementById('modal-ct-title').textContent = 'Editar Tipo de Chamada';
-    document.getElementById('ct-id').value = editCt;
-    document.getElementById('ct-name').value = e.target.getAttribute('data-ct-name');
-    document.getElementById('ct-upload-label').textContent = 'Clique para trocar o vídeo';
-    document.getElementById('ct-upload-icon').textContent = '🎬';
-    document.getElementById('ct-video-url').value = '';
-    document.getElementById('ct-video-input').value = '';
-    document.getElementById('ct-upload-progress').style.display = 'none';
-    document.getElementById('video-label-hint').textContent = '(opcional — só se quiser trocar)';
-    showModal('modal-calltype');
-  }
-
-  if (deleteCt) {
-    if (confirm('Deletar este tipo de chamada?')) {
-      var r = await fetch('/links/calltype/delete/' + deleteCt, { method: 'DELETE' });
-      var data = await r.json();
-      if (data.success) { showToast('Tipo deletado!'); location.reload(); }
-    }
+  if (toggleId) {
+    var r = await fetch('/links/toggle/' + toggleId, { method: 'POST' });
+    var data = await r.json();
+    if (data.success) { showToast(data.active ? 'Link ativado' : 'Link desativado'); location.reload(); }
   }
 
   if (shareId) {
     var r = await fetch('/links/share/' + shareId, { method: 'POST' });
     var data = await r.json();
     if (data.success) {
-      var field = document.getElementById('link-' + shareId);
-      if (field) field.value = data.url;
       navigator.clipboard.writeText(data.url).catch(function(){});
-      showToast('Link gerado e copiado!');
+      showToast('Link copiado: ' + data.url);
     } else {
       showToast('Erro: ' + (data.error || 'Tente novamente'));
     }
   }
 
-  if (copyId) {
-    var field = document.getElementById('link-' + copyId);
-    if (field && field.value) {
-      navigator.clipboard.writeText(field.value).catch(function(){});
-      showToast('Link copiado!');
-    } else {
-      showToast('Gere um link primeiro clicando em +');
+  if (copyApi) {
+    navigator.clipboard.writeText(BASE_URL + '/go/' + copyApi).catch(function(){});
+    showToast('Link API copiado!');
+  }
+
+  if (deleteId) {
+    if (confirm('Tem certeza que deseja deletar este link?')) {
+      var r = await fetch('/links/delete/' + deleteId, { method: 'DELETE' });
+      var data = await r.json();
+      if (data.success) { showToast('Link deletado!'); location.reload(); }
+      else { showToast('Erro ao deletar'); }
     }
   }
 
-  if (historyId) {
-    var panel = document.getElementById('history-' + historyId);
+  if (editId) {
+    document.getElementById('edit-link-id').value = editId;
+    document.getElementById('edit-host-name').value = editName;
+    showEditModal();
+  }
+
+  if (sessionsId) {
+    var panel = document.getElementById('sessions-' + sessionsId);
     if (panel.style.display === 'none') {
       panel.style.display = 'block';
-      var r = await fetch('/dashboard/calltype/' + historyId + '/sessions');
+      var r = await fetch('/dashboard/link/' + sessionsId + '/sessions');
       var sessions = await r.json();
       if (sessions.length === 0) {
-        panel.innerHTML = '<div class="history-empty">Nenhuma sessão ainda</div>';
+        panel.innerHTML = '<div class="sessions-empty">Nenhuma conversa ainda</div>';
         return;
       }
-      var html = '<table class="history-table"><thead><tr><th>Status</th><th>Criado em</th><th>Duração</th></tr></thead><tbody>';
+      var html = '<div class="sessions-table"><div class="sessions-head"><span>Status</span><span>Criada em</span><span>Token</span></div>';
       sessions.forEach(function(s) {
         var badge = s.status === 'active' ? 'badge-active' : s.status === 'ended' ? 'badge-ended' : 'badge-pending';
         var label = s.status === 'active' ? '● Ativa' : s.status === 'ended' ? '⊘ Finalizada' : '○ Pendente';
-        var dur = s.duration_mins ? s.duration_mins + ' min' : '—';
-        html += '<tr><td><span class="badge ' + badge + '">' + label + '</span></td><td>' + new Date(s.created_at).toLocaleString('pt-BR') + '</td><td>' + dur + '</td></tr>';
+        html += '<div class="sessions-row"><span class="badge ' + badge + '">' + label + '</span><span>' + new Date(s.created_at).toLocaleString('pt-BR') + '</span><span class="token-cell">' + s.session_token.substring(0,12) + '...</span></div>';
       });
-      html += '</tbody></table>';
+      html += '<div class="sessions-foot"><span>Total: ' + sessions.length + '</span><span>Finalizadas: ' + sessions.filter(function(s){return s.status==='ended';}).length + '</span></div></div>';
       panel.innerHTML = html;
     } else {
       panel.style.display = 'none';
