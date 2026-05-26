@@ -1,55 +1,57 @@
-const Database = require('better-sqlite3');
-const path = require('path');
+const { Pool } = require('pg');
 
-const dbDir = process.env.RAILWAY_VOLUME_MOUNT_PATH || path.join(__dirname, '..');
-const dbPath = path.join(dbDir, 'darkroom.db');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL && process.env.DATABASE_URL.includes('railway.internal') 
+    ? false 
+    : { rejectUnauthorized: false }
+});
 
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      role TEXT DEFAULT 'host',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    role TEXT DEFAULT 'host',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+    CREATE TABLE IF NOT EXISTS models (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      name TEXT NOT NULL,
+      avatar_color TEXT DEFAULT '#e8641a',
+      active INTEGER DEFAULT 1,
+      sort_order INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
 
-  CREATE TABLE IF NOT EXISTS models (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    avatar_color TEXT DEFAULT '#e8641a',
-    active INTEGER DEFAULT 1,
-    sort_order INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  );
+    CREATE TABLE IF NOT EXISTS call_types (
+      id SERIAL PRIMARY KEY,
+      model_id INTEGER NOT NULL REFERENCES models(id),
+      name TEXT NOT NULL,
+      video_url TEXT,
+      video_public_id TEXT,
+      active INTEGER DEFAULT 1,
+      sort_order INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
 
-  CREATE TABLE IF NOT EXISTS call_types (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    model_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    video_url TEXT,
-    video_public_id TEXT,
-    active INTEGER DEFAULT 1,
-    sort_order INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (model_id) REFERENCES models(id)
-  );
+    CREATE TABLE IF NOT EXISTS sessions_calls (
+      id SERIAL PRIMARY KEY,
+      call_type_id INTEGER NOT NULL REFERENCES call_types(id),
+      session_token TEXT UNIQUE NOT NULL,
+      status TEXT DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      started_at TIMESTAMP,
+      ended_at TIMESTAMP
+    );
+  `);
+  console.log('PostgreSQL inicializado');
+}
 
-  CREATE TABLE IF NOT EXISTS sessions_calls (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    call_type_id INTEGER NOT NULL,
-    session_token TEXT UNIQUE NOT NULL,
-    status TEXT DEFAULT 'pending',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    started_at DATETIME,
-    ended_at DATETIME,
-    FOREIGN KEY (call_type_id) REFERENCES call_types(id)
-  );
-`);
+initDB().catch(console.error);
 
-module.exports = db;
+module.exports = pool;
