@@ -31,11 +31,9 @@ router.get('/', requireAuth, (req, res) => {
       const lastSession = db.prepare(`
         SELECT * FROM sessions_calls WHERE call_type_id = ? ORDER BY created_at DESC LIMIT 1
       `).get(ct.id);
-
       const totalSessions = db.prepare(`
         SELECT COUNT(*) as count FROM sessions_calls WHERE call_type_id = ?
       `).get(ct.id);
-
       return {
         ...ct,
         lastSession: lastSession ? {
