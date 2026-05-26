@@ -72,13 +72,11 @@
             <div class="history-panel" id="history-<%= ct.id %>" style="display:none"></div>
           </div>
           <% }) %>
-
           <button class="btn-add-calltype" data-add-calltype="<%= model.id %>">+ Adicionar tipo de chamada</button>
         </div>
       </div>
       <% }) %>
 
-      <!-- Card Nova Modelo -->
       <div class="model-card model-card-new" id="btn-novo-modelo-card">
         <div class="new-model-inner">
           <div class="new-model-icon">+</div>
@@ -148,7 +146,7 @@
         <div class="upload-zone" id="upload-zone-ct">
           <div class="upload-icon">🎬</div>
           <div id="upload-label-ct">Clique para adicionar vídeo</div>
-          <div class="upload-sub">MP4, MOV, WebM • Máximo 500MB</div>
+          <div class="upload-sub">MP4, MOV, WebM • Sem limite de tamanho</div>
         </div>
         <input type="file" id="video-input-ct" accept="video/*" style="display:none">
       </div>
@@ -178,7 +176,7 @@
         <div class="upload-zone" id="upload-zone-edit-ct">
           <div class="upload-icon">🎬</div>
           <div id="upload-label-edit-ct">Clique para trocar o vídeo</div>
-          <div class="upload-sub">MP4, MOV, WebM • Máximo 500MB</div>
+          <div class="upload-sub">MP4, MOV, WebM • Sem limite de tamanho</div>
         </div>
         <input type="file" id="video-input-edit-ct" accept="video/*" style="display:none">
       </div>
@@ -229,10 +227,19 @@ document.getElementById('video-input-edit-ct').addEventListener('change', functi
   if (this.files[0]) document.getElementById('upload-label-edit-ct').textContent = '✓ ' + this.files[0].name;
 });
 
+// Upload via presigned URL para o R2
 async function uploadVideo(file, btnEl, labelEl) {
-  var cloudForm = new FormData();
-  cloudForm.append('file', file);
-  cloudForm.append('upload_preset', 'darkroom_videos');
+  // 1. Pede URL assinada ao servidor
+  if (btnEl) btnEl.textContent = 'Preparando upload...';
+  var presignRes = await fetch('/links/presign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename: file.name, contentType: file.type })
+  });
+  var presignData = await presignRes.json();
+  if (!presignData.success) throw new Error('Erro ao preparar upload: ' + presignData.error);
+
+  // 2. Envia direto para o R2
   return new Promise(function(resolve, reject) {
     var xhr = new XMLHttpRequest();
     xhr.upload.addEventListener('progress', function(ev) {
@@ -244,15 +251,15 @@ async function uploadVideo(file, btnEl, labelEl) {
     });
     xhr.addEventListener('load', function() {
       if (xhr.status === 200) {
-        var result = JSON.parse(xhr.responseText);
-        resolve({ url: result.secure_url, public_id: result.public_id });
+        resolve({ url: presignData.publicUrl, public_id: presignData.key });
       } else {
-        reject(new Error('Erro Cloudinary ' + xhr.status + ': ' + xhr.responseText));
+        reject(new Error('Erro R2 ' + xhr.status));
       }
     });
     xhr.addEventListener('error', function() { reject(new Error('Falha de rede')); });
-    xhr.open('POST', 'https://api.cloudinary.com/v1_1/di0u5vsaq/video/upload');
-    xhr.send(cloudForm);
+    xhr.open('PUT', presignData.signedUrl);
+    xhr.setRequestHeader('Content-Type', file.type);
+    xhr.send(file);
   });
 }
 
