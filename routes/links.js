@@ -31,9 +31,12 @@ router.post('/presign', requireAuth, async (req, res) => {
       ContentType: contentType
     });
 
-    const signedUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
-    const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
+    const signedUrl = await getSignedUrl(s3, command, {
+      expiresIn: 3600,
+      unhoistableHeaders: new Set(['content-type'])
+    });
 
+    const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
     res.json({ success: true, signedUrl, publicUrl, key });
   } catch (e) {
     console.error('Presign error:', e.message);
