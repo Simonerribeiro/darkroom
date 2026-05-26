@@ -227,21 +227,16 @@ document.getElementById('video-input-edit-ct').addEventListener('change', functi
   if (this.files[0]) document.getElementById('upload-label-edit-ct').textContent = '✓ ' + this.files[0].name;
 });
 
-// Upload via presigned URL para o R2
+// Upload via servidor para o R2
 async function uploadVideo(file, btnEl, labelEl) {
-  // 1. Pede URL assinada ao servidor
-  if (btnEl) btnEl.textContent = 'Preparando upload...';
-  var presignRes = await fetch('/links/presign', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filename: file.name, contentType: file.type })
-  });
-  var presignData = await presignRes.json();
-  if (!presignData.success) throw new Error('Erro ao preparar upload: ' + presignData.error);
+  if (btnEl) btnEl.textContent = 'Enviando... 0%';
+  if (labelEl) labelEl.textContent = 'Enviando...';
 
-  // 2. Envia direto para o R2
   return new Promise(function(resolve, reject) {
     var xhr = new XMLHttpRequest();
+    var fd = new FormData();
+    fd.append('video', file);
+
     xhr.upload.addEventListener('progress', function(ev) {
       if (ev.lengthComputable) {
         var pct = Math.round((ev.loaded / ev.total) * 100);
@@ -249,17 +244,23 @@ async function uploadVideo(file, btnEl, labelEl) {
         if (labelEl) labelEl.textContent = 'Enviando... ' + pct + '%';
       }
     });
+
     xhr.addEventListener('load', function() {
       if (xhr.status === 200) {
-        resolve({ url: presignData.publicUrl, public_id: presignData.key });
+        var result = JSON.parse(xhr.responseText);
+        if (result.success) {
+          resolve({ url: result.url, public_id: result.key });
+        } else {
+          reject(new Error(result.error || 'Erro no upload'));
+        }
       } else {
-        reject(new Error('Erro R2 ' + xhr.status));
+        reject(new Error('Erro ' + xhr.status));
       }
     });
+
     xhr.addEventListener('error', function() { reject(new Error('Falha de rede')); });
-    xhr.open('PUT', presignData.signedUrl);
-    xhr.setRequestHeader('Content-Type', file.type);
-    xhr.send(file);
+    xhr.open('POST', '/links/upload-video');
+    xhr.send(fd);
   });
 }
 
