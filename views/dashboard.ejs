@@ -23,88 +23,68 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">🎬 Modelos</h1>
-        <p class="page-sub">Gerencie modelos, tipos de chamada e links para clientes</p>
+        <p class="page-sub" style="font-size:12px;color:#888;margin-top:4px">Gerencie modelos, tipos de chamada e links para clientes</p>
         <div class="page-meta">
           <span><b><%= stats.totalModels %></b> modelos</span>
           <span>•</span>
           <span><b><%= stats.totalCallTypes %></b> tipos de chamada</span>
           <span>•</span>
-          <span><b><%= stats.activeSessions %></b> sessões ativas</span>
+          <span><b><%= stats.activeSessions %></b> ao vivo agora</span>
         </div>
       </div>
-      <button class="btn-orange" id="btn-novo-modelo">+ Novo Modelo</button>
+      <button class="btn-orange" id="btn-novo-modelo">+ Nova Modelo</button>
     </div>
 
-    <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-label">Modelos</div>
-        <div class="stat-value orange"><%= stats.totalModels %></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Tipos de Chamada</div>
-        <div class="stat-value"><%= stats.totalCallTypes %></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Ao Vivo Agora</div>
-        <div class="stat-value green"><%= stats.activeSessions %></div>
-      </div>
-    </div>
-
-    <div class="links-list" id="models-list">
+    <div class="models-grid" id="models-grid">
       <% models.forEach(function(model) { %>
-      <div class="link-card" id="model-<%= model.id %>">
-        <div class="link-card-header">
-          <div class="host-info">
-            <div class="avatar" style="background:<%= model.avatar_color %>"><%= model.name.substring(0,2).toUpperCase() %></div>
-            <div>
-              <div class="host-name"><%= model.name %></div>
-              <div class="host-slug">
-                <span class="badge <%= model.active ? 'badge-active' : 'badge-inactive' %>">
-                  <%= model.active ? 'Ativa' : 'Inativa' %>
-                </span>
-                <span style="margin-left:8px;font-size:12px;color:#888"><%= model.callTypes.length %> tipos de chamada</span>
-              </div>
-            </div>
+      <div class="model-card" id="model-<%= model.id %>">
+        <div class="model-header">
+          <div class="model-avatar" style="background:<%= model.avatar_color %>">
+            <%= model.name.substring(0,2).toUpperCase() %>
           </div>
-          <div class="link-actions">
-            <button class="btn-icon" data-add-calltype="<%= model.id %>" data-model-name="<%= model.name %>">+ Chamada</button>
+          <div class="model-info">
+            <div class="model-name"><%= model.name %></div>
+            <div class="model-stats"><%= model.callTypes.length %> tipos de chamada</div>
+          </div>
+          <div class="model-actions">
             <button class="btn-icon" data-edit-model="<%= model.id %>" data-name="<%= model.name %>">✏️</button>
-            <button class="btn-icon danger" data-delete-model="<%= model.id %>">🗑️</button>
+            <button class="btn-icon danger" data-delete-model="<%= model.id %>">🗑</button>
           </div>
         </div>
 
-        <% if (model.callTypes.length > 0) { %>
-        <div class="sessions-panel" style="display:block; padding: 0 16px 16px">
+        <div class="calltypes-list">
           <% model.callTypes.forEach(function(ct) { %>
           <div class="calltype-row" id="ct-<%= ct.id %>">
-            <div class="calltype-info">
-              <span class="calltype-name"><%= ct.name %></span>
-              <% if (ct.video_url) { %>
-                <span class="badge badge-active" style="font-size:10px">✓ Vídeo</span>
-              <% } else { %>
-                <span class="badge badge-inactive" style="font-size:10px">Sem vídeo</span>
+            <div class="calltype-name">
+              <%= ct.name %>
+              <% if (!ct.video_url) { %>
+                <span class="badge badge-inactive" style="font-size:10px;margin-left:6px">Sem vídeo</span>
               <% } %>
-              <span style="font-size:11px;color:#888"><%= ct.totalSessions %> sessões</span>
             </div>
-            <div class="link-actions">
-              <button class="btn-icon orange" data-share-ct="<%= ct.id %>">🔗 Link</button>
+            <div class="calltype-actions">
+              <button class="btn-share" data-share-ct="<%= ct.id %>" title="Gerar link">+</button>
+              <input type="text" class="link-field" id="link-<%= ct.id %>" placeholder="Link gerado aqui..." readonly>
+              <button class="btn-copy" data-copy-ct="<%= ct.id %>" title="Copiar link">⎘</button>
+              <button class="btn-history" data-history-ct="<%= ct.id %>" title="Histórico">▾</button>
               <button class="btn-icon" data-edit-ct="<%= ct.id %>" data-name="<%= ct.name %>">✏️</button>
-              <button class="btn-icon danger" data-delete-ct="<%= ct.id %>">🗑️</button>
+              <button class="btn-icon danger" data-delete-ct="<%= ct.id %>">🗑</button>
             </div>
+            <div class="history-panel" id="history-<%= ct.id %>" style="display:none"></div>
           </div>
           <% }) %>
+
+          <button class="btn-add-calltype" data-add-calltype="<%= model.id %>">+ Adicionar tipo de chamada</button>
         </div>
-        <% } %>
       </div>
       <% }) %>
 
-      <% if (models.length === 0) { %>
-      <div class="empty-state">
-        <div class="empty-icon">🎬</div>
-        <p>Nenhum modelo cadastrado ainda</p>
-        <button class="btn-orange" id="btn-primeiro-modelo">Criar primeiro modelo</button>
+      <!-- Card Nova Modelo -->
+      <div class="model-card model-card-new" id="btn-novo-modelo-card">
+        <div class="new-model-inner">
+          <div class="new-model-icon">+</div>
+          <span>Nova Modelo</span>
+        </div>
       </div>
-      <% } %>
     </div>
   </main>
 </div>
@@ -113,7 +93,7 @@
 <div class="modal-overlay" id="modal-novo-modelo">
   <div class="modal">
     <div class="modal-header">
-      <h2>🎬 Novo Modelo</h2>
+      <h2>🎬 Nova Modelo</h2>
       <button class="modal-close" id="btn-close-modelo">✕</button>
     </div>
     <form id="form-novo-modelo">
@@ -222,31 +202,20 @@ function showToast(msg) {
   setTimeout(function() { t.classList.remove('show'); }, 3000);
 }
 
-// --- Modais Modelo ---
-function showModalModelo() { document.getElementById('modal-novo-modelo').classList.add('open'); }
-function hideModalModelo() { document.getElementById('modal-novo-modelo').classList.remove('open'); }
-function showEditModalModelo() { document.getElementById('modal-edit-modelo').classList.add('open'); }
-function hideEditModalModelo() { document.getElementById('modal-edit-modelo').classList.remove('open'); }
+function showModal(id) { document.getElementById(id).classList.add('open'); }
+function hideModal(id) { document.getElementById(id).classList.remove('open'); }
 
-// --- Modais CallType ---
-function showModalCt() { document.getElementById('modal-novo-ct').classList.add('open'); }
-function hideModalCt() { document.getElementById('modal-novo-ct').classList.remove('open'); }
-function showEditModalCt() { document.getElementById('modal-edit-ct').classList.add('open'); }
-function hideEditModalCt() { document.getElementById('modal-edit-ct').classList.remove('open'); }
+document.getElementById('btn-novo-modelo').addEventListener('click', function() { showModal('modal-novo-modelo'); });
+document.getElementById('btn-novo-modelo-card').addEventListener('click', function() { showModal('modal-novo-modelo'); });
+document.getElementById('btn-close-modelo').addEventListener('click', function() { hideModal('modal-novo-modelo'); });
+document.getElementById('btn-cancel-modelo').addEventListener('click', function() { hideModal('modal-novo-modelo'); });
+document.getElementById('btn-close-edit-modelo').addEventListener('click', function() { hideModal('modal-edit-modelo'); });
+document.getElementById('btn-cancel-edit-modelo').addEventListener('click', function() { hideModal('modal-edit-modelo'); });
+document.getElementById('btn-close-ct').addEventListener('click', function() { hideModal('modal-novo-ct'); });
+document.getElementById('btn-cancel-ct').addEventListener('click', function() { hideModal('modal-novo-ct'); });
+document.getElementById('btn-close-edit-ct').addEventListener('click', function() { hideModal('modal-edit-ct'); });
+document.getElementById('btn-cancel-edit-ct').addEventListener('click', function() { hideModal('modal-edit-ct'); });
 
-document.getElementById('btn-novo-modelo').addEventListener('click', showModalModelo);
-var btnPrimeiro = document.getElementById('btn-primeiro-modelo');
-if (btnPrimeiro) btnPrimeiro.addEventListener('click', showModalModelo);
-document.getElementById('btn-close-modelo').addEventListener('click', hideModalModelo);
-document.getElementById('btn-cancel-modelo').addEventListener('click', hideModalModelo);
-document.getElementById('btn-close-edit-modelo').addEventListener('click', hideEditModalModelo);
-document.getElementById('btn-cancel-edit-modelo').addEventListener('click', hideEditModalModelo);
-document.getElementById('btn-close-ct').addEventListener('click', hideModalCt);
-document.getElementById('btn-cancel-ct').addEventListener('click', hideModalCt);
-document.getElementById('btn-close-edit-ct').addEventListener('click', hideEditModalCt);
-document.getElementById('btn-cancel-edit-ct').addEventListener('click', hideEditModalCt);
-
-// Upload zones
 document.getElementById('upload-zone-ct').addEventListener('click', function() {
   document.getElementById('video-input-ct').click();
 });
@@ -260,12 +229,10 @@ document.getElementById('video-input-edit-ct').addEventListener('change', functi
   if (this.files[0]) document.getElementById('upload-label-edit-ct').textContent = '✓ ' + this.files[0].name;
 });
 
-// Upload direto ao Cloudinary
 async function uploadVideo(file, btnEl, labelEl) {
   var cloudForm = new FormData();
   cloudForm.append('file', file);
   cloudForm.append('upload_preset', 'darkroom_videos');
-
   return new Promise(function(resolve, reject) {
     var xhr = new XMLHttpRequest();
     xhr.upload.addEventListener('progress', function(ev) {
@@ -289,14 +256,13 @@ async function uploadVideo(file, btnEl, labelEl) {
   });
 }
 
-// --- Form Novo Modelo ---
+// Form Novo Modelo
 document.getElementById('form-novo-modelo').addEventListener('submit', async function(e) {
   e.preventDefault();
   var nome = document.getElementById('modelo-nome').value;
   try {
     var r = await fetch('/links/model/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: nome })
     });
     var data = await r.json();
@@ -305,15 +271,14 @@ document.getElementById('form-novo-modelo').addEventListener('submit', async fun
   } catch(err) { showToast('Erro de conexão'); }
 });
 
-// --- Form Editar Modelo ---
+// Form Editar Modelo
 document.getElementById('form-edit-modelo').addEventListener('submit', async function(e) {
   e.preventDefault();
   var id = document.getElementById('edit-modelo-id').value;
   var nome = document.getElementById('edit-modelo-nome').value;
   try {
     var r = await fetch('/links/model/edit/' + id, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: nome })
     });
     var data = await r.json();
@@ -322,7 +287,7 @@ document.getElementById('form-edit-modelo').addEventListener('submit', async fun
   } catch(err) { showToast('Erro de conexão'); }
 });
 
-// --- Form Novo Tipo de Chamada ---
+// Form Novo Tipo de Chamada
 document.getElementById('form-novo-ct').addEventListener('submit', async function(e) {
   e.preventDefault();
   var btn = document.getElementById('btn-create-ct');
@@ -330,10 +295,8 @@ document.getElementById('form-novo-ct').addEventListener('submit', async functio
   var nome = document.getElementById('ct-nome').value;
   var videoFile = document.getElementById('video-input-ct').files[0];
   var labelEl = document.getElementById('upload-label-ct');
-
   btn.disabled = true;
   btn.textContent = 'Salvando...';
-
   try {
     var videoUrl = null, publicId = null;
     if (videoFile) {
@@ -342,8 +305,7 @@ document.getElementById('form-novo-ct').addEventListener('submit', async functio
       publicId = uploaded.public_id;
     }
     var r = await fetch('/links/calltype/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model_id: modelId, name: nome, video_url: videoUrl, video_public_id: publicId })
     });
     var data = await r.json();
@@ -357,7 +319,7 @@ document.getElementById('form-novo-ct').addEventListener('submit', async functio
   }
 });
 
-// --- Form Editar Tipo de Chamada ---
+// Form Editar Tipo de Chamada
 document.getElementById('form-edit-ct').addEventListener('submit', async function(e) {
   e.preventDefault();
   var btn = document.getElementById('btn-save-edit-ct');
@@ -365,10 +327,8 @@ document.getElementById('form-edit-ct').addEventListener('submit', async functio
   var nome = document.getElementById('edit-ct-nome').value;
   var videoFile = document.getElementById('video-input-edit-ct').files[0];
   var labelEl = document.getElementById('upload-label-edit-ct');
-
   btn.disabled = true;
   btn.textContent = 'Salvando...';
-
   try {
     var videoUrl = null, publicId = null;
     if (videoFile) {
@@ -377,8 +337,7 @@ document.getElementById('form-edit-ct').addEventListener('submit', async functio
       publicId = uploaded.public_id;
     }
     var r = await fetch('/links/calltype/edit/' + id, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: nome, video_url: videoUrl, video_public_id: publicId })
     });
     var data = await r.json();
@@ -392,12 +351,14 @@ document.getElementById('form-edit-ct').addEventListener('submit', async functio
   }
 });
 
-// --- Delegação de eventos ---
+// Delegação de eventos
 document.addEventListener('click', async function(e) {
   var addCt = e.target.getAttribute('data-add-calltype');
   var editModel = e.target.getAttribute('data-edit-model');
   var deleteModel = e.target.getAttribute('data-delete-model');
   var shareCt = e.target.getAttribute('data-share-ct');
+  var copyCt = e.target.getAttribute('data-copy-ct');
+  var historyCt = e.target.getAttribute('data-history-ct');
   var editCt = e.target.getAttribute('data-edit-ct');
   var deleteCt = e.target.getAttribute('data-delete-ct');
 
@@ -407,14 +368,13 @@ document.addEventListener('click', async function(e) {
     document.getElementById('upload-label-ct').textContent = 'Clique para adicionar vídeo';
     document.getElementById('btn-create-ct').textContent = 'Criar Tipo';
     document.getElementById('btn-create-ct').disabled = false;
-    showModalCt();
+    showModal('modal-novo-ct');
   }
 
   if (editModel) {
-    var nome = e.target.getAttribute('data-name');
     document.getElementById('edit-modelo-id').value = editModel;
-    document.getElementById('edit-modelo-nome').value = nome;
-    showEditModalModelo();
+    document.getElementById('edit-modelo-nome').value = e.target.getAttribute('data-name');
+    showModal('modal-edit-modelo');
   }
 
   if (deleteModel) {
@@ -430,21 +390,56 @@ document.addEventListener('click', async function(e) {
     var r = await fetch('/links/share/' + shareCt, { method: 'POST' });
     var data = await r.json();
     if (data.success) {
+      var input = document.getElementById('link-' + shareCt);
+      if (input) input.value = data.url;
       navigator.clipboard.writeText(data.url).catch(function(){});
-      showToast('Link copiado: ' + data.url);
+      showToast('Link gerado e copiado!');
     } else {
       showToast('Erro: ' + (data.error || 'Tente novamente'));
     }
   }
 
+  if (copyCt) {
+    var input = document.getElementById('link-' + copyCt);
+    if (input && input.value) {
+      navigator.clipboard.writeText(input.value).catch(function(){});
+      showToast('Link copiado!');
+    } else {
+      showToast('Gere um link primeiro');
+    }
+  }
+
+  if (historyCt) {
+    var panel = document.getElementById('history-' + historyCt);
+    if (panel.style.display === 'none') {
+      panel.style.display = 'block';
+      var r = await fetch('/dashboard/calltype/' + historyCt + '/sessions');
+      var sessions = await r.json();
+      if (sessions.length === 0) {
+        panel.innerHTML = '<div class="history-empty">Nenhuma sessão ainda</div>';
+        return;
+      }
+      var html = '<table class="history-table"><thead><tr><th>Status</th><th>Criada</th><th>Duração</th></tr></thead><tbody>';
+      sessions.forEach(function(s) {
+        var badge = s.status === 'active' ? 'badge-active' : s.status === 'ended' ? 'badge-ended' : 'badge-pending';
+        var label = s.status === 'active' ? '● Ativa' : s.status === 'ended' ? '⊘ Finalizada' : '○ Pendente';
+        var dur = s.duration_mins ? s.duration_mins + ' min' : '-';
+        html += '<tr><td><span class="badge ' + badge + '">' + label + '</span></td><td>' + new Date(s.created_at).toLocaleString('pt-BR') + '</td><td>' + dur + '</td></tr>';
+      });
+      html += '</tbody></table>';
+      panel.innerHTML = html;
+    } else {
+      panel.style.display = 'none';
+    }
+  }
+
   if (editCt) {
-    var nome = e.target.getAttribute('data-name');
     document.getElementById('edit-ct-id').value = editCt;
-    document.getElementById('edit-ct-nome').value = nome;
+    document.getElementById('edit-ct-nome').value = e.target.getAttribute('data-name');
     document.getElementById('upload-label-edit-ct').textContent = 'Clique para trocar o vídeo';
     document.getElementById('btn-save-edit-ct').textContent = 'Salvar';
     document.getElementById('btn-save-edit-ct').disabled = false;
-    showEditModalCt();
+    showModal('modal-edit-ct');
   }
 
   if (deleteCt) {
@@ -457,28 +452,5 @@ document.addEventListener('click', async function(e) {
   }
 });
 </script>
-
-<style>
-.calltype-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  background: rgba(255,255,255,0.03);
-  border-radius: 8px;
-  margin-bottom: 8px;
-  border: 1px solid rgba(255,255,255,0.06);
-}
-.calltype-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.calltype-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #e0e0e0;
-}
-</style>
 </body>
 </html>
