@@ -3,7 +3,6 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session);
 const path = require('path');
 const db = require('./db/database');
 
@@ -18,10 +17,6 @@ app.use(express.json({ limit: '600mb' }));
 app.use(express.urlencoded({ extended: true, limit: '600mb' }));
 
 const sessionMiddleware = session({
-  store: new SQLiteStore({
-    db: 'sessions.db',
-    dir: process.env.RAILWAY_VOLUME_MOUNT_PATH || '.'
-  }),
   secret: process.env.SESSION_SECRET || 'darkroom-secret-2024',
   resave: false,
   saveUninitialized: false,
