@@ -1,109 +1,58 @@
-const express = require('express');
-const router = express.Router();
-const db = require('../db/database');
+async function uploadVideoToCloudinary(file, callTypeId) {
+  const CLOUD_NAME = 'di0u5vsaq';
+  const UPLOAD_PRESET = 'darkroom_videos';
 
-function requireAuth(req, res, next) {
-  if (!req.session.userId) return res.redirect('/');
-  next();
-}
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', UPLOAD_PRESET);
+  formData.append('resource_type', 'video');
 
-function calcDuration(started_at, ended_at) {
-  if (!started_at || !ended_at) return null;
-  const start = new Date(started_at);
-  const end = new Date(ended_at);
-  const diff = Math.floor((end - start) / 1000);
-  const mins = Math.floor(diff / 60);
-  const secs = diff % 60;
-  return `${mins}m ${secs}s`;
-}
+  // Mostra barra de progresso
+  const progressBar = document.getElementById('upload-progress');
+  const progressText = document.getElementById('upload-percent');
+  if (progressBar) progressBar.style.display = 'block';
 
-router.get('/', requireAuth, (req, res) => {
-  const models = db.prepare(`
-    SELECT * FROM models WHERE user_id = ? ORDER BY sort_order ASC, created_at ASC
-  `).all(req.session.userId);
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
 
-  const modelsWithData = models.map(model => {
-    const callTypes = db.prepare(`
-      SELECT * FROM call_types WHERE model_id = ? ORDER BY sort_order ASC, created_at ASC
-    `).all(model.id);
-
-    const callTypesWithSessions = callTypes.map(ct => {
-      const lastSession = db.prepare(`
-        SELECT * FROM sessions_calls WHERE call_type_id = ? ORDER BY created_at DESC LIMIT 1
-      `).get(ct.id);
-
-      const totalSessions = db.prepare(`
-        SELECT COUNT(*) as count FROM sessions_calls WHERE call_type_id = ?
-      `).get(ct.id);
-
-      return {
-        ...ct,
-        lastSession: lastSession ? {
-          ...lastSession,
-          duration: calcDuration(lastSession.started_at, lastSession.ended_at)
-        } : null,
-        totalSessions: totalSessions.count
-      };
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 100);
+        if (progressBar) progressBar.value = percent;
+        if (progressText) progressText.textContent = percent + '%';
+      }
     });
 
-    return { ...model, callTypes: callTypesWithSessions };
+    xhr.addEventListener('load', async () => {
+      if (xhr.status === 200) {
+        const result = JSON.parse(xhr.responseText);
+        const videoUrl = result.secure_url;
+        const publicId = result.public_id;
+
+        // Agora salva a URL no banco via servidor
+        try {
+          const saveRes = await fetch('/dashboard/save-video', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ callTypeId, videoUrl, publicId })
+          });
+          const saveData = await saveRes.json();
+          if (saveData.success) {
+            resolve(videoUrl);
+          } else {
+            reject(new Error('Erro ao salvar vídeo no banco'));
+          }
+        } catch (err) {
+          reject(err);
+        }
+      } else {
+        reject(new Error('Erro no upload: ' + xhr.status + ' - ' + xhr.responseText));
+      }
+    });
+
+    xhr.addEventListener('error', () => reject(new Error('Falha de rede no upload')));
+
+    xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`);
+    xhr.send(formData);
   });
-
-  const stats = {
-    totalModels: models.length,
-    totalCallTypes: db.prepare(`
-      SELECT COUNT(*) as count FROM call_types ct
-      JOIN models m ON ct.model_id = m.id
-      WHERE m.user_id = ?
-    `).get(req.session.userId).count,
-    activeSessions: db.prepare(`
-      SELECT COUNT(*) as count FROM sessions_calls sc
-      JOIN call_types ct ON sc.call_type_id = ct.id
-      JOIN models m ON ct.model_id = m.id
-      WHERE m.user_id = ? AND sc.status = 'active'
-    `).get(req.session.userId).count
-  };
-
-  res.render('dashboard', {
-    models: modelsWithData,
-    stats,
-    userName: req.session.userName,
-    userRole: req.session.userRole,
-    baseUrl: process.env.BASE_URL || `${req.protocol}://${req.get('host')}`
-  });
-});
-
-router.get('/model/:id/sessions', requireAuth, (req, res) => {
-  const sessions = db.prepare(`
-    SELECT sc.*, ct.name as call_type_name,
-    CASE
-      WHEN sc.started_at IS NOT NULL AND sc.ended_at IS NOT NULL
-      THEN ROUND((julianday(sc.ended_at) - julianday(sc.started_at)) * 24 * 60, 1)
-      ELSE NULL
-    END as duration_mins
-    FROM sessions_calls sc
-    JOIN call_types ct ON sc.call_type_id = ct.id
-    WHERE ct.model_id = ?
-    ORDER BY sc.created_at DESC
-    LIMIT 50
-  `).all(req.params.id);
-  res.json(sessions);
-});
-
-router.get('/calltype/:id/sessions', requireAuth, (req, res) => {
-  const sessions = db.prepare(`
-    SELECT *,
-    CASE
-      WHEN started_at IS NOT NULL AND ended_at IS NOT NULL
-      THEN ROUND((julianday(ended_at) - julianday(started_at)) * 24 * 60, 1)
-      ELSE NULL
-    END as duration_mins
-    FROM sessions_calls
-    WHERE call_type_id = ?
-    ORDER BY created_at DESC
-    LIMIT 20
-  `).all(req.params.id);
-  res.json(sessions);
-});
-
-module.exports = router;
+}
