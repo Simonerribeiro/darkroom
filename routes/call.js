@@ -1,267 +1,82 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title><%= link.host_name %> está te esperando</title>
+const express = require('express');
+const router = express.Router();
+const db = require('../db/database');
 
-<!-- Preview WhatsApp / redes sociais -->
-<meta property="og:type" content="website">
-<meta property="og:title" content="<%= link.host_name %> está te esperando 🎥">
-<meta property="og:description" content="Clique aqui para falar com <%= link.host_name %> agora">
-<meta property="og:url" content="<%= baseUrl %>/go/<%= link.slug %>/<%= token %>">
-<meta property="og:site_name" content="Darkroom">
-<meta property="og:image" content="<%= baseUrl %>/img/preview.jpg">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="<%= link.host_name %> está te esperando 🎥">
-<meta name="twitter:description" content="Clique aqui para falar com <%= link.host_name %> agora">
-<meta name="twitter:image" content="<%= baseUrl %>/img/preview.jpg">
-
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #000; color: #fff; font-family: Arial, sans-serif; height: 100vh; overflow: hidden; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
-
-#incoming-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 2rem; text-align: center; background: #0a0a0a; }
-.incoming-name { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; margin-top: 1.5rem; }
-.incoming-label { font-size: 1rem; color: #aaa; margin-bottom: 0.25rem; }
-.incoming-sub { font-size: 0.85rem; color: #555; margin-bottom: 3rem; }
-.incoming-icon { font-size: 5rem; }
-.incoming-hint { font-size: 0.8rem; color: #444; margin-top: 1.5rem; }
-
-.incoming-buttons { display: flex; gap: 4rem; align-items: center; justify-content: center; }
-.btn-decline { width: 72px; height: 72px; border-radius: 50%; border: none; background: #e74c3c; font-size: 1.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-.btn-accept { width: 72px; height: 72px; border-radius: 50%; border: none; background: #27ae60; font-size: 1.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; touch-action: manipulation; animation: pulse-green 1.5s infinite; }
-@keyframes pulse-green { 0%,100% { box-shadow: 0 0 0 0 rgba(39,174,96,0.5); } 50% { box-shadow: 0 0 0 20px rgba(39,174,96,0); } }
-
-#call-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; }
-
-#host-video { display: none; }
-
-#host-canvas {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-  pointer-events: none;
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-#local-video { position: absolute; top: 16px; right: 16px; width: 90px; height: 130px; object-fit: cover; border-radius: 10px; z-index: 10; border: 2px solid rgba(255,255,255,0.3); background: #222; }
-
-.call-controls { position: absolute; bottom: 0; left: 0; right: 0; padding: 1.5rem 2rem 3rem; display: flex; align-items: center; justify-content: center; gap: 1.2rem; background: linear-gradient(transparent, rgba(0,0,0,0.8)); z-index: 20; }
-.ctrl-btn { width: 54px; height: 54px; border-radius: 50%; border: none; background: rgba(255,255,255,0.2); color: #fff; font-size: 1.4rem; cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-.ctrl-btn.end { background: #e74c3c; width: 62px; height: 62px; }
-
-#end-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; background: rgba(0,0,0,0.6); align-items: flex-end; justify-content: center; padding: 1rem; }
-.end-box { background: #1a1a1a; border-radius: 16px; padding: 1.75rem; width: 100%; max-width: 400px; text-align: center; margin-bottom: 1rem; }
-.end-box h2 { font-size: 18px; font-weight: 700; margin-bottom: 1rem; }
-.end-box p { font-size: 14px; color: #aaa; line-height: 1.6; margin-bottom: 1.5rem; }
-.btn-end-confirm { display: block; width: 100%; background: #e74c3c; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 10px; touch-action: manipulation; }
-.btn-end-cancel { display: block; width: 100%; background: #2a2a2a; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; cursor: pointer; touch-action: manipulation; }
-</style>
-</head>
-<body>
-
-<div id="incoming-screen">
-  <div class="incoming-icon">📞</div>
-  <h1 class="incoming-name"><%= link.host_name %></h1>
-  <p class="incoming-label">Chamada de vídeo recebida</p>
-  <p class="incoming-sub">Entrando como Lead</p>
-  <div class="incoming-buttons">
-    <button class="btn-decline" id="btn-decline">✕</button>
-    <button class="btn-accept" id="btn-accept">📞</button>
-  </div>
-  <p class="incoming-hint">Toque em aceitar para entrar na chamada</p>
-</div>
-
-<div id="call-screen">
-  <video id="host-video" autoplay playsinline loop muted webkit-playsinline crossorigin="anonymous"></video>
-  <canvas id="host-canvas"></canvas>
-  <video id="local-video" autoplay playsinline muted webkit-playsinline></video>
-  <div class="call-controls">
-    <button class="ctrl-btn" id="btn-mic">🎤</button>
-    <button class="ctrl-btn" id="btn-cam">📷</button>
-    <button class="ctrl-btn" id="btn-speaker">🔊</button>
-    <button class="ctrl-btn end" id="btn-end">📵</button>
-  </div>
-</div>
-
-<div id="end-modal">
-  <div class="end-box">
-    <h2>Encerrar chamada?</h2>
-    <p>Esta é uma sessão de acesso único — uma vez que você sair, não poderá retornar.</p>
-    <button class="btn-end-confirm" id="btn-end-confirm">Sim, encerrar chamada</button>
-    <button class="btn-end-cancel" id="btn-end-cancel">Cancelar</button>
-  </div>
-</div>
-
-<script>
-var SLUG = '<%= link.slug %>';
-var TOKEN = '<%= token %>';
-var VIDEO_URL = '<%= link.video_url %>';
-var localStream = null;
-var micOn = true;
-var camOn = true;
-var speakerOn = true;
-var callActive = false;
-var animFrame = null;
-var videoReady = false;
-
-var hostVideo = document.getElementById('host-video');
-if (VIDEO_URL && VIDEO_URL !== 'null' && VIDEO_URL !== '') {
-  hostVideo.src = VIDEO_URL;
-  hostVideo.muted = true;
-  hostVideo.load();
-  hostVideo.addEventListener('canplaythrough', function() {
-    videoReady = true;
-  });
-}
-
-window.history.pushState(null, null, window.location.href);
-window.addEventListener('popstate', function() {
-  window.history.pushState(null, null, window.location.href);
-  if (callActive) {
-    document.getElementById('end-modal').style.display = 'flex';
-  }
-});
-
-document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
-
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'F12' || (e.ctrlKey && ['s','u','a','c'].includes(e.key.toLowerCase()))) {
-    e.preventDefault();
-  }
-});
-
-document.getElementById('btn-accept').addEventListener('click', function(e) {
-  e.preventDefault();
-  acceptCall();
-});
-
-document.getElementById('btn-decline').addEventListener('click', function(e) {
-  e.preventDefault();
-  window.close();
-  setTimeout(function() { window.location.href = 'about:blank'; }, 300);
-});
-
-document.getElementById('btn-end').addEventListener('click', function(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  document.getElementById('end-modal').style.display = 'flex';
-});
-
-document.getElementById('btn-end-confirm').addEventListener('click', function(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  endCall();
-});
-
-document.getElementById('btn-end-cancel').addEventListener('click', function(e) {
-  e.preventDefault();
-  e.stopPropagation();
-  document.getElementById('end-modal').style.display = 'none';
-});
-
-document.getElementById('btn-mic').addEventListener('click', function(e) {
-  e.preventDefault();
-  if (!localStream) return;
-  micOn = !micOn;
-  localStream.getAudioTracks().forEach(function(t) { t.enabled = micOn; });
-  this.style.opacity = micOn ? '1' : '0.4';
-});
-
-document.getElementById('btn-cam').addEventListener('click', function(e) {
-  e.preventDefault();
-  if (!localStream) return;
-  camOn = !camOn;
-  localStream.getVideoTracks().forEach(function(t) { t.enabled = camOn; });
-  this.style.opacity = camOn ? '1' : '0.4';
-});
-
-document.getElementById('btn-speaker').addEventListener('click', function(e) {
-  e.preventDefault();
-  speakerOn = !speakerOn;
-  hostVideo.muted = !speakerOn;
-  this.textContent = speakerOn ? '🔊' : '🔇';
-});
-
-function renderCanvas() {
-  var canvas = document.getElementById('host-canvas');
-  var ctx = canvas.getContext('2d');
-
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-
-  function draw() {
-    if (hostVideo.readyState >= 2) {
-      var vw = hostVideo.videoWidth;
-      var vh = hostVideo.videoHeight;
-      var cw = canvas.width;
-      var ch = canvas.height;
-      var scale = Math.max(cw / vw, ch / vh);
-      var nw = vw * scale;
-      var nh = vh * scale;
-      var nx = (cw - nw) / 2;
-      var ny = (ch - nh) / 2;
-      ctx.drawImage(hostVideo, nx, ny, nw, nh);
-    }
-    animFrame = requestAnimationFrame(draw);
-  }
-  draw();
-}
-
-async function acceptCall() {
+router.get('/:slug/:token', async (req, res) => {
+  const { slug, token } = req.params;
+  const parts = slug.split('-');
+  const modelId = parts[0];
+  const callTypeId = parts[1];
   try {
-    var r = await fetch('/go/' + SLUG + '/' + TOKEN + '/accept', { method: 'POST' });
-    var data = await r.json();
-    if (!data.success || data.blocked) { location.reload(); return; }
-
-    callActive = true;
-    document.getElementById('incoming-screen').style.display = 'none';
-    document.getElementById('call-screen').style.display = 'block';
-
-    hostVideo.muted = true;
-    hostVideo.play().then(function() {
-      hostVideo.muted = false;
-      speakerOn = true;
-      renderCanvas();
-    }).catch(function() {
-      hostVideo.muted = true;
-      hostVideo.play();
-      renderCanvas();
+    const callTypeResult = await db.query(
+      'SELECT * FROM call_types WHERE id = $1 AND active = 1',
+      [callTypeId]
+    );
+    const callType = callTypeResult.rows[0];
+    if (!callType) return res.render('call-blocked', { reason: 'not_found' });
+    const modelResult = await db.query('SELECT * FROM models WHERE id = $1', [modelId]);
+    const model = modelResult.rows[0];
+    if (!model) return res.render('call-blocked', { reason: 'not_found' });
+    const sessionResult = await db.query(
+      'SELECT * FROM sessions_calls WHERE session_token = $1 AND call_type_id = $2',
+      [token, callTypeId]
+    );
+    const session = sessionResult.rows[0];
+    if (!session) return res.render('call-blocked', { reason: 'not_found' });
+    if (session.status === 'ended') return res.render('call-blocked', { reason: 'ended' });
+    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+    res.render('call-incoming', {
+      link: { host_name: model.name, slug, video_url: callType.video_url },
+      session,
+      baseUrl,
+      token
     });
-
-    window.addEventListener('resize', function() {
-      var canvas = document.getElementById('host-canvas');
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    });
-
-    try {
-      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      document.getElementById('local-video').srcObject = localStream;
-    } catch(e) {
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-      } catch(e2) { console.log('No media:', e2); }
-    }
-  } catch(err) {
-    console.error('Error:', err);
+  } catch(e) {
+    console.error('Call error:', e);
+    res.render('call-blocked', { reason: 'not_found' });
   }
-}
+});
 
-async function endCall() {
-  callActive = false;
-  if (animFrame) cancelAnimationFrame(animFrame);
-  if (localStream) localStream.getTracks().forEach(function(t) { t.stop(); });
-  try { await fetch('/go/' + SLUG + '/' + TOKEN + '/end', { method: 'POST' }); } catch(e) {}
-  location.reload();
-}
-</script>
-</body>
-</html>
+router.post('/:slug/:token/accept', async (req, res) => {
+  const { slug, token } = req.params;
+  const parts = slug.split('-');
+  const callTypeId = parts[1];
+  try {
+    const sessionResult = await db.query(
+      'SELECT * FROM sessions_calls WHERE session_token = $1 AND call_type_id = $2',
+      [token, callTypeId]
+    );
+    const session = sessionResult.rows[0];
+    if (!session || session.status === 'ended') return res.json({ success: false, blocked: true });
+    const callTypeResult = await db.query('SELECT * FROM call_types WHERE id = $1', [callTypeId]);
+    const callType = callTypeResult.rows[0];
+    const modelResult = await db.query('SELECT * FROM models WHERE id = $1', [parts[0]]);
+    const model = modelResult.rows[0];
+    await db.query(
+      "UPDATE sessions_calls SET status = 'active', started_at = CURRENT_TIMESTAMP WHERE session_token = $1",
+      [token]
+    );
+    res.json({
+      success: true,
+      videoUrl: callType.video_url,
+      hostName: model.name
+    });
+  } catch(e) {
+    res.json({ success: false, blocked: true });
+  }
+});
+
+router.post('/:slug/:token/end', async (req, res) => {
+  const { token } = req.params;
+  try {
+    await db.query(
+      "UPDATE sessions_calls SET status = 'ended', ended_at = CURRENT_TIMESTAMP WHERE session_token = $1",
+      [token]
+    );
+    res.json({ success: true });
+  } catch(e) {
+    res.json({ success: false });
+  }
+});
+
+module.exports = router;
