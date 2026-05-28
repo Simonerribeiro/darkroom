@@ -4,13 +4,32 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Darkroom</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/css/main.css">
 </head>
 <body class="app-body">
 <div class="topbar">
   <div class="topbar-logo">dark<span>room</span></div>
   <div class="topbar-right">
-    <span class="user-chip">👤 <%= userName %></span>
+    <svg width="22" height="22" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="#777" stroke-width="3"/>
+      <line x1="50" y1="4" x2="50" y2="20" stroke="#777" stroke-width="2"/>
+      <line x1="50" y1="80" x2="50" y2="96" stroke="#777" stroke-width="2"/>
+      <path d="M50 15 Q58 30 50 50 Q42 70 50 85" fill="#444" stroke="#777" stroke-width="1"/>
+      <path d="M50 25 Q65 40 62 55 Q58 68 50 78" fill="#444" stroke="none"/>
+      <path d="M50 25 Q35 40 38 55 Q42 68 50 78" fill="#333" stroke="none"/>
+      <rect x="18" y="38" width="14" height="22" rx="2" fill="#4a3f6b" opacity="0.9"/>
+      <rect x="22" y="42" width="3" height="3" fill="#c8a84b" opacity="0.8"/>
+      <rect x="22" y="48" width="3" height="3" fill="#c8a84b" opacity="0.8"/>
+      <rect x="27" y="42" width="3" height="3" fill="#c8a84b" opacity="0.8"/>
+      <rect x="27" y="48" width="3" height="3" fill="#c8a84b" opacity="0.8"/>
+      <rect x="68" y="38" width="14" height="22" rx="2" fill="#4a3f6b" opacity="0.9"/>
+      <rect x="72" y="42" width="3" height="3" fill="#c8a84b" opacity="0.8"/>
+      <rect x="72" y="48" width="3" height="3" fill="#c8a84b" opacity="0.8"/>
+      <rect x="77" y="42" width="3" height="3" fill="#c8a84b" opacity="0.8"/>
+      <rect x="77" y="48" width="3" height="3" fill="#c8a84b" opacity="0.8"/>
+    </svg>
+    <span class="user-chip"><%= userName %></span>
     <a href="/logout" class="btn-ghost">Sair</a>
   </div>
 </div>
@@ -227,12 +246,10 @@ document.getElementById('video-input-edit-ct').addEventListener('change', functi
   if (this.files[0]) document.getElementById('upload-label-edit-ct').textContent = '✓ ' + this.files[0].name;
 });
 
-// Upload direto do browser para o R2 (sem passar pelo Railway)
 async function uploadVideo(file, btnEl, labelEl) {
   if (btnEl) btnEl.textContent = 'Preparando...';
   if (labelEl) labelEl.textContent = 'Preparando...';
 
-  // Passo 1 — pedir URL assinada ao servidor
   var presignRes = await fetch('/links/presign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -241,7 +258,6 @@ async function uploadVideo(file, btnEl, labelEl) {
   var presignData = await presignRes.json();
   if (!presignData.success) throw new Error(presignData.error || 'Erro ao gerar URL');
 
-  // Passo 2 — enviar direto para o R2 com barra de progresso
   return new Promise(function(resolve, reject) {
     var xhr = new XMLHttpRequest();
 
@@ -268,7 +284,6 @@ async function uploadVideo(file, btnEl, labelEl) {
   });
 }
 
-// Form Novo Modelo
 document.getElementById('form-novo-modelo').addEventListener('submit', async function(e) {
   e.preventDefault();
   var nome = document.getElementById('modelo-nome').value;
@@ -283,7 +298,6 @@ document.getElementById('form-novo-modelo').addEventListener('submit', async fun
   } catch(err) { showToast('Erro de conexão'); }
 });
 
-// Form Editar Modelo
 document.getElementById('form-edit-modelo').addEventListener('submit', async function(e) {
   e.preventDefault();
   var id = document.getElementById('edit-modelo-id').value;
@@ -299,7 +313,6 @@ document.getElementById('form-edit-modelo').addEventListener('submit', async fun
   } catch(err) { showToast('Erro de conexão'); }
 });
 
-// Form Novo Tipo de Chamada
 document.getElementById('form-novo-ct').addEventListener('submit', async function(e) {
   e.preventDefault();
   var btn = document.getElementById('btn-create-ct');
@@ -331,7 +344,6 @@ document.getElementById('form-novo-ct').addEventListener('submit', async functio
   }
 });
 
-// Form Editar Tipo de Chamada
 document.getElementById('form-edit-ct').addEventListener('submit', async function(e) {
   e.preventDefault();
   var btn = document.getElementById('btn-save-edit-ct');
@@ -363,7 +375,6 @@ document.getElementById('form-edit-ct').addEventListener('submit', async functio
   }
 });
 
-// Delegação de eventos
 document.addEventListener('click', async function(e) {
   var addCt = e.target.getAttribute('data-add-calltype');
   var editModel = e.target.getAttribute('data-edit-model');
