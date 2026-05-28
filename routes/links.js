@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const multer = require('multer');
 
 const s3 = new S3Client({
@@ -24,7 +25,33 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// Upload de vídeo para R2
+// ✅ NOVA ROTA — gera URL assinada para upload direto do browser para o R2
+router.post('/presign', requireAuth, async (req, res) => {
+  try {
+    const { filename, contentType } = req.body;
+    if (!filename || !contentType) {
+      return res.json({ success: false, error: 'filename e contentType obrigatorios' });
+    }
+
+    const key = `videos/${uuidv4()}-${filename}`;
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: key,
+      ContentType: contentType
+    });
+
+    const signedUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
+    const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
+
+    res.json({ success: true, signedUrl, publicUrl, key });
+  } catch (e) {
+    console.error('Presign error:', e.message);
+    res.json({ success: false, error: e.message });
+  }
+});
+
+// Upload de vídeo para R2 (rota antiga — mantida para compatibilidade)
 router.post('/upload-video', requireAuth, upload.single('video'), async (req, res) => {
   try {
     if (!req.file) return res.json({ success: false, error: 'Nenhum arquivo enviado' });
