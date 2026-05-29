@@ -71,6 +71,24 @@ app.get('/status', async (req, res) => {
   }
 });
 
+// Limpeza automática de sessões antigas (roda a cada 24 horas)
+async function cleanOldSessions() {
+  try {
+    const result = await db.query(
+      `DELETE FROM sessions_calls 
+       WHERE created_at < NOW() - INTERVAL '7 days' 
+       AND status IN ('ended', 'pending')`
+    );
+    console.log(`[LIMPEZA] ${result.rowCount} sessões antigas removidas`);
+  } catch(e) {
+    console.error('[LIMPEZA] Erro:', e.message);
+  }
+}
+
+// Roda a limpeza imediatamente ao iniciar e depois a cada 24 horas
+cleanOldSessions();
+setInterval(cleanOldSessions, 24 * 60 * 60 * 1000);
+
 io.on('connection', (socket) => {
   socket.on('join-room', (roomId) => {
     socket.join(roomId);
