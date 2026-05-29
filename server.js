@@ -43,6 +43,34 @@ app.use('/dashboard', dashRoutes);
 app.use('/links', linkRoutes);
 app.use('/go', callRoutes);
 
+// Página de status
+app.get('/status', async (req, res) => {
+  try {
+    const start = Date.now();
+    const dbCheck = await db.query('SELECT COUNT(*) as total FROM sessions_calls');
+    const activeCheck = await db.query("SELECT COUNT(*) as total FROM sessions_calls WHERE status = 'active'");
+    const pendingCheck = await db.query("SELECT COUNT(*) as total FROM sessions_calls WHERE status = 'pending'");
+    const modelsCheck = await db.query('SELECT COUNT(*) as total FROM models');
+    const dbTime = Date.now() - start;
+
+    res.json({
+      status: 'online',
+      timestamp: new Date().toISOString(),
+      uptime_seconds: Math.floor(process.uptime()),
+      memory_mb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      db_response_ms: dbTime,
+      stats: {
+        total_sessions: parseInt(dbCheck.rows[0].total),
+        active_sessions: parseInt(activeCheck.rows[0].total),
+        pending_sessions: parseInt(pendingCheck.rows[0].total),
+        total_models: parseInt(modelsCheck.rows[0].total)
+      }
+    });
+  } catch(e) {
+    res.status(500).json({ status: 'error', error: e.message });
+  }
+});
+
 io.on('connection', (socket) => {
   socket.on('join-room', (roomId) => {
     socket.join(roomId);
