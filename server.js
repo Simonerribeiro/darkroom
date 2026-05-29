@@ -33,6 +33,18 @@ io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
 });
 
+// Log de todas as requisições
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - start;
+    if (res.statusCode >= 400) {
+      console.error(`[ERRO] ${req.method} ${req.path} → ${res.statusCode} (${ms}ms)`);
+    }
+  });
+  next();
+});
+
 const authRoutes = require('./routes/auth');
 const dashRoutes = require('./routes/dashboard');
 const linkRoutes = require('./routes/links');
@@ -85,9 +97,24 @@ async function cleanOldSessions() {
   }
 }
 
-// Roda a limpeza imediatamente ao iniciar e depois a cada 24 horas
 cleanOldSessions();
 setInterval(cleanOldSessions, 24 * 60 * 60 * 1000);
+
+// Captura erros globais não tratados
+process.on('uncaughtException', (err) => {
+  console.error('[CRASH] Erro não tratado:', err.message);
+  console.error(err.stack);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[CRASH] Promise rejeitada:', reason);
+});
+
+// Middleware de erro global
+app.use((err, req, res, next) => {
+  console.error(`[ERRO GLOBAL] ${req.method} ${req.path}:`, err.message);
+  res.status(500).json({ error: 'Erro interno do servidor' });
+});
 
 io.on('connection', (socket) => {
   socket.on('join-room', (roomId) => {
