@@ -33,7 +33,6 @@ io.use((socket, next) => {
   sessionMiddleware(socket.request, {}, next);
 });
 
-// Log de todas as requisições
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
@@ -55,7 +54,6 @@ app.use('/dashboard', dashRoutes);
 app.use('/links', linkRoutes);
 app.use('/go', callRoutes);
 
-// Página de status
 app.get('/status', async (req, res) => {
   try {
     const start = Date.now();
@@ -83,7 +81,24 @@ app.get('/status', async (req, res) => {
   }
 });
 
-// Limpeza automática de sessões antigas (roda a cada 24 horas)
+// ── Proteção 1: Encerra sessões "active" travadas há mais de 2 horas ────────
+async function fixStuckSessions() {
+  try {
+    const result = await db.query(
+      `UPDATE sessions_calls 
+       SET status = 'ended', ended_at = NOW()
+       WHERE status = 'active' 
+       AND started_at < NOW() - INTERVAL '2 hours'`
+    );
+    if (result.rowCount > 0) {
+      console.log(`[LIMPEZA] ${result.rowCount} sessões travadas encerradas`);
+    }
+  } catch(e) {
+    console.error('[LIMPEZA] Erro ao encerrar sessões travadas:', e.message);
+  }
+}
+
+// ── Limpeza de sessões antigas (pending/ended com mais de 7 dias) ────────────
 async function cleanOldSessions() {
   try {
     const result = await db.query(
@@ -97,10 +112,16 @@ async function cleanOldSessions() {
   }
 }
 
+// Roda na inicialização
+fixStuckSessions();
 cleanOldSessions();
+
+// Sessões travadas: verifica a cada 30 minutos
+setInterval(fixStuckSessions, 30 * 60 * 1000);
+
+// Sessões antigas: limpa a cada 24 horas
 setInterval(cleanOldSessions, 24 * 60 * 60 * 1000);
 
-// Captura erros globais não tratados
 process.on('uncaughtException', (err) => {
   console.error('[CRASH] Erro não tratado:', err.message);
   console.error(err.stack);
@@ -110,10 +131,10 @@ process.on('unhandledRejection', (reason) => {
   console.error('[CRASH] Promise rejeitada:', reason);
 });
 
-// Middleware de erro global
+// ── Proteção 2: Página de erro amigável ─────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error(`[ERRO GLOBAL] ${req.method} ${req.path}:`, err.message);
-  res.status(500).json({ error: 'Erro interno do servidor' });
+  res.status(500).render('error', {});
 });
 
 io.on('connection', (socket) => {
