@@ -25,25 +25,20 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// Gera URL assinada para upload direto do browser para o R2
 router.post('/presign', requireAuth, async (req, res) => {
   try {
     const { filename, contentType } = req.body;
     if (!filename || !contentType) {
       return res.json({ success: false, error: 'filename e contentType obrigatorios' });
     }
-
     const key = `videos/${uuidv4()}-${filename}`;
-
     const command = new PutObjectCommand({
       Bucket: process.env.R2_BUCKET,
       Key: key,
       ContentType: contentType
     });
-
     const signedUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
     const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
-
     res.json({ success: true, signedUrl, publicUrl, key });
   } catch (e) {
     console.error('Presign error:', e.message);
@@ -51,20 +46,16 @@ router.post('/presign', requireAuth, async (req, res) => {
   }
 });
 
-// Upload de vídeo para R2 (rota antiga — mantida para compatibilidade)
 router.post('/upload-video', requireAuth, upload.single('video'), async (req, res) => {
   try {
     if (!req.file) return res.json({ success: false, error: 'Nenhum arquivo enviado' });
-
     const key = `videos/${uuidv4()}-${req.file.originalname}`;
-
     await s3.send(new PutObjectCommand({
       Bucket: process.env.R2_BUCKET,
       Key: key,
       Body: req.file.buffer,
       ContentType: req.file.mimetype
     }));
-
     const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
     res.json({ success: true, url: publicUrl, key });
   } catch (e) {
@@ -73,7 +64,6 @@ router.post('/upload-video', requireAuth, upload.single('video'), async (req, re
   }
 });
 
-// Criar modelo
 router.post('/model/create', requireAuth, async (req, res) => {
   const { name } = req.body;
   if (!name) return res.json({ success: false, error: 'Nome obrigatorio' });
@@ -88,7 +78,6 @@ router.post('/model/create', requireAuth, async (req, res) => {
   }
 });
 
-// Editar modelo
 router.post('/model/edit/:id', requireAuth, async (req, res) => {
   const { name } = req.body;
   try {
@@ -102,7 +91,6 @@ router.post('/model/edit/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Deletar modelo
 router.delete('/model/delete/:id', requireAuth, async (req, res) => {
   try {
     const callTypes = await db.query(
@@ -120,7 +108,6 @@ router.delete('/model/delete/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Criar tipo de chamada
 router.post('/calltype/create', requireAuth, async (req, res) => {
   try {
     const { model_id, name, video_url, video_public_id } = req.body;
@@ -135,7 +122,6 @@ router.post('/calltype/create', requireAuth, async (req, res) => {
   }
 });
 
-// Editar tipo de chamada
 router.post('/calltype/edit/:id', requireAuth, async (req, res) => {
   try {
     const { name, video_url, video_public_id } = req.body;
@@ -153,7 +139,6 @@ router.post('/calltype/edit/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Deletar tipo de chamada
 router.delete('/calltype/delete/:id', requireAuth, async (req, res) => {
   try {
     await db.query('DELETE FROM sessions_calls WHERE call_type_id = $1', [req.params.id]);
@@ -164,8 +149,6 @@ router.delete('/calltype/delete/:id', requireAuth, async (req, res) => {
   }
 });
 
-// ── Gerar link de compartilhamento ─────────────────────────────────────────
-// URL agora usa /go/:slug?t=TOKEN para permitir preview do WhatsApp
 router.post('/share/:callTypeId', requireAuth, async (req, res) => {
   try {
     const callTypeResult = await db.query(
@@ -186,7 +169,7 @@ router.post('/share/:callTypeId', requireAuth, async (req, res) => {
     const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
     const slug = `${model.id}-${callType.id}`;
 
-    res.json({ success: true, url: `${baseUrl}/go/${slug}?t=${token}`, token });
+    res.json({ success: true, url: `${baseUrl}/go/${slug}/${token}`, token });
   } catch (e) {
     res.json({ success: false, error: e.message });
   }
