@@ -44,6 +44,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// Exporta io para ser usado nas rotas
+app.set('io', io);
+
 const authRoutes = require('./routes/auth');
 const dashRoutes = require('./routes/dashboard');
 const linkRoutes = require('./routes/links');
@@ -92,13 +95,13 @@ async function fixStuckSessions() {
     );
     if (result.rowCount > 0) {
       console.log(`[LIMPEZA] ${result.rowCount} sessões travadas encerradas`);
+      io.emit('sessions-updated');
     }
   } catch(e) {
     console.error('[LIMPEZA] Erro ao encerrar sessões travadas:', e.message);
   }
 }
 
-// ── Limpeza de sessões antigas (pending/ended com mais de 7 dias) ────────────
 async function cleanOldSessions() {
   try {
     const result = await db.query(
@@ -112,14 +115,10 @@ async function cleanOldSessions() {
   }
 }
 
-// Roda na inicialização
 fixStuckSessions();
 cleanOldSessions();
 
-// Sessões travadas: verifica a cada 30 minutos
 setInterval(fixStuckSessions, 30 * 60 * 1000);
-
-// Sessões antigas: limpa a cada 24 horas
 setInterval(cleanOldSessions, 24 * 60 * 60 * 1000);
 
 process.on('uncaughtException', (err) => {
@@ -148,6 +147,9 @@ io.on('connection', (socket) => {
   socket.on('leave-room', (roomId) => {
     socket.to(roomId).emit('user-left', socket.id);
     socket.leave(roomId);
+  });
+  socket.on('watch-dashboard', () => {
+    socket.join('dashboard');
   });
 });
 
