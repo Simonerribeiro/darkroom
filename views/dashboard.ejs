@@ -72,6 +72,22 @@
               <button class="btn-icon danger" data-delete-ct="<%= ct.id %>">🗑</button>
             </div>
             <div class="history-panel" id="history-<%= ct.id %>" style="display:none"></div>
+
+            <!-- Painel de monitoramento em tempo real -->
+            <div class="monitor-panel" id="monitor-<%= ct.id %>">
+              <div class="monitor-header">
+                <span class="monitor-title">Sessões</span>
+                <span class="monitor-live"><span class="live-dot"></span>Ao vivo</span>
+              </div>
+              <div class="monitor-body" id="monitor-body-<%= ct.id %>">
+                <% if (ct.lastSession) { %>
+                <div class="monitor-empty">Carregando...</div>
+                <% } else { %>
+                <div class="monitor-empty">Nenhuma sessão ainda</div>
+                <% } %>
+              </div>
+            </div>
+
           </div>
           <% }) %>
           <button class="btn-add-calltype" data-add-calltype="<%= model.id %>">+ Adicionar tipo de chamada</button>
@@ -192,8 +208,69 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="/socket.io/socket.io.js"></script>
 <script>
 var BASE_URL = '<%= baseUrl %>';
+var socket = io();
+socket.emit('watch-dashboard');
+
+// Carrega sessões de um tipo de chamada e atualiza o painel
+async function loadMonitor(ctId) {
+  try {
+    var r = await fetch('/dashboard/calltype/' + ctId + '/sessions');
+    var sessions = await r.json();
+    var body = document.getElementById('monitor-body-' + ctId);
+    if (!body) return;
+
+    if (!sessions || sessions.length === 0) {
+      body.innerHTML = '<div class="monitor-empty">Nenhuma sessão ainda</div>';
+      return;
+    }
+
+    var html = '<table class="monitor-table"><thead><tr><th>Lead</th><th>Status</th><th>Criada em</th></tr></thead><tbody>';
+    sessions.forEach(function(s) {
+      var statusClass, statusLabel;
+      if (s.status === 'active') {
+        statusClass = 'monitor-badge-online';
+        statusLabel = '● Online';
+      } else if (s.status === 'pending') {
+        statusClass = 'monitor-badge-waiting';
+        statusLabel = '⏱ Aguardando';
+      } else {
+        statusClass = 'monitor-badge-ended';
+        statusLabel = '⊘ Finalizada';
+      }
+      var created = new Date(s.created_at).toLocaleString('pt-BR');
+      html += '<tr>' +
+        '<td><span class="monitor-lead-icon">L</span> Lead</td>' +
+        '<td><span class="monitor-badge ' + statusClass + '">' + statusLabel + '</span></td>' +
+        '<td>' + created + '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    body.innerHTML = html;
+  } catch(e) {
+    console.error('Monitor error:', e);
+  }
+}
+
+// Carrega todos os monitores ao abrir
+document.querySelectorAll('[id^="monitor-body-"]').forEach(function(el) {
+  var ctId = el.id.replace('monitor-body-', '');
+  loadMonitor(ctId);
+});
+
+// Atualiza em tempo real quando sessão muda
+socket.on('session-changed', function(data) {
+  loadMonitor(data.callTypeId);
+});
+
+socket.on('sessions-updated', function() {
+  document.querySelectorAll('[id^="monitor-body-"]').forEach(function(el) {
+    var ctId = el.id.replace('monitor-body-', '');
+    loadMonitor(ctId);
+  });
+});
 
 function showToast(msg) {
   var t = document.getElementById('toast');
@@ -243,7 +320,6 @@ async function uploadVideo(file, btnEl, labelEl) {
 
   return new Promise(function(resolve, reject) {
     var xhr = new XMLHttpRequest();
-
     xhr.upload.addEventListener('progress', function(ev) {
       if (ev.lengthComputable) {
         var pct = Math.round((ev.loaded / ev.total) * 100);
@@ -251,7 +327,6 @@ async function uploadVideo(file, btnEl, labelEl) {
         if (labelEl) labelEl.textContent = 'Enviando... ' + pct + '%';
       }
     });
-
     xhr.addEventListener('load', function() {
       if (xhr.status === 200 || xhr.status === 201) {
         resolve({ url: presignData.publicUrl, public_id: presignData.key });
@@ -259,7 +334,6 @@ async function uploadVideo(file, btnEl, labelEl) {
         reject(new Error('Erro no upload: ' + xhr.status));
       }
     });
-
     xhr.addEventListener('error', function() { reject(new Error('Falha de rede')); });
     xhr.open('PUT', presignData.signedUrl);
     xhr.setRequestHeader('Content-Type', file.type);
