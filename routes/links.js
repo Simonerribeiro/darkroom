@@ -5,6 +5,13 @@ const { v4: uuidv4 } = require('uuid');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const multer = require('multer');
+const ffmpeg = require('fluent-ffmpeg');
+const ffmpegStatic = require('ffmpeg-static');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+ffmpeg.setFfmpegPath(ffmpegStatic);
 
 const s3 = new S3Client({
   region: 'auto',
@@ -25,6 +32,27 @@ function requireAuth(req, res, next) {
   next();
 }
 
+// Comprime vídeo para H.264 + AAC com faststart (~10-15MB)
+function compressVideo(inputPath, outputPath) {
+  return new Promise((resolve, reject) => {
+    ffmpeg(inputPath)
+      .videoCodec('libx264')
+      .audioCodec('aac')
+      .outputOptions([
+        '-crf 28',
+        '-preset fast',
+        '-movflags +faststart',
+        '-vf scale=720:-2',
+        '-maxrate 1500k',
+        '-bufsize 3000k'
+      ])
+      .on('end', resolve)
+      .on('error', reject)
+      .save(outputPath);
+  });
+}
+
+// Gera URL assinada para upload direto do browser para o R2
 router.post('/presign', requireAuth, async (req, res) => {
   try {
     const { filename, contentType } = req.body;
@@ -46,24 +74,43 @@ router.post('/presign', requireAuth, async (req, res) => {
   }
 });
 
+// Upload de vídeo com compressão automática
 router.post('/upload-video', requireAuth, upload.single('video'), async (req, res) => {
+  const tmpInput = path.join(os.tmpdir(), `input-${uuidv4()}.mp4`);
+  const tmpOutput = path.join(os.tmpdir(), `output-${uuidv4()}.mp4`);
   try {
     if (!req.file) return res.json({ success: false, error: 'Nenhum arquivo enviado' });
-    const key = `videos/${uuidv4()}-${req.file.originalname}`;
+
+    // Salva o arquivo original em temp
+    fs.writeFileSync(tmpInput, req.file.buffer);
+
+    // Comprime
+    console.log('[VIDEO] Comprimindo vídeo...');
+    await compressVideo(tmpInput, tmpOutput);
+    console.log('[VIDEO] Compressão concluída');
+
+    const compressed = fs.readFileSync(tmpOutput);
+    const key = `videos/${uuidv4()}-compressed.mp4`;
+
     await s3.send(new PutObjectCommand({
       Bucket: process.env.R2_BUCKET,
       Key: key,
-      Body: req.file.buffer,
-      ContentType: req.file.mimetype
+      Body: compressed,
+      ContentType: 'video/mp4'
     }));
+
     const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
     res.json({ success: true, url: publicUrl, key });
   } catch (e) {
     console.error('Upload error:', e.message);
     res.json({ success: false, error: e.message });
+  } finally {
+    try { fs.unlinkSync(tmpInput); } catch(e) {}
+    try { fs.unlinkSync(tmpOutput); } catch(e) {}
   }
 });
 
+// Criar modelo
 router.post('/model/create', requireAuth, async (req, res) => {
   const { name } = req.body;
   if (!name) return res.json({ success: false, error: 'Nome obrigatorio' });
@@ -78,6 +125,7 @@ router.post('/model/create', requireAuth, async (req, res) => {
   }
 });
 
+// Editar modelo
 router.post('/model/edit/:id', requireAuth, async (req, res) => {
   const { name } = req.body;
   try {
@@ -91,6 +139,7 @@ router.post('/model/edit/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Deletar modelo
 router.delete('/model/delete/:id', requireAuth, async (req, res) => {
   try {
     const callTypes = await db.query(
@@ -108,6 +157,7 @@ router.delete('/model/delete/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Criar tipo de chamada
 router.post('/calltype/create', requireAuth, async (req, res) => {
   try {
     const { model_id, name, video_url, video_public_id } = req.body;
@@ -122,6 +172,7 @@ router.post('/calltype/create', requireAuth, async (req, res) => {
   }
 });
 
+// Editar tipo de chamada
 router.post('/calltype/edit/:id', requireAuth, async (req, res) => {
   try {
     const { name, video_url, video_public_id } = req.body;
@@ -139,6 +190,7 @@ router.post('/calltype/edit/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Deletar tipo de chamada
 router.delete('/calltype/delete/:id', requireAuth, async (req, res) => {
   try {
     await db.query('DELETE FROM sessions_calls WHERE call_type_id = $1', [req.params.id]);
@@ -149,6 +201,7 @@ router.delete('/calltype/delete/:id', requireAuth, async (req, res) => {
   }
 });
 
+// Gerar link de compartilhamento
 router.post('/share/:callTypeId', requireAuth, async (req, res) => {
   try {
     const callTypeResult = await db.query(
