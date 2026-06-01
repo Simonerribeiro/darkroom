@@ -25,7 +25,7 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// ✅ NOVA ROTA — gera URL assinada para upload direto do browser para o R2
+// Gera URL assinada para upload direto do browser para o R2
 router.post('/presign', requireAuth, async (req, res) => {
   try {
     const { filename, contentType } = req.body;
@@ -164,7 +164,8 @@ router.delete('/calltype/delete/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Gerar link de compartilhamento
+// ── Gerar link de compartilhamento ─────────────────────────────────────────
+// URL agora usa /go/:slug?t=TOKEN para permitir preview do WhatsApp
 router.post('/share/:callTypeId', requireAuth, async (req, res) => {
   try {
     const callTypeResult = await db.query(
@@ -185,7 +186,7 @@ router.post('/share/:callTypeId', requireAuth, async (req, res) => {
     const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
     const slug = `${model.id}-${callType.id}`;
 
-    res.json({ success: true, url: `${baseUrl}/go/${slug}/${token}`, token });
+    res.json({ success: true, url: `${baseUrl}/go/${slug}?t=${token}`, token });
   } catch (e) {
     res.json({ success: false, error: e.message });
   }
