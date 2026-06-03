@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db/database');
+const { query: db } = require('../db/database');
 
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.redirect('/');
@@ -19,25 +19,25 @@ function calcDuration(started_at, ended_at) {
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const modelsResult = await db.query(
+    const modelsResult = await db(
       'SELECT * FROM models WHERE user_id = $1 ORDER BY sort_order ASC, created_at ASC',
       [req.session.userId]
     );
     const models = modelsResult.rows;
 
     const modelsWithData = await Promise.all(models.map(async (model) => {
-      const callTypesResult = await db.query(
+      const callTypesResult = await db(
         'SELECT * FROM call_types WHERE model_id = $1 ORDER BY sort_order ASC, created_at ASC',
         [model.id]
       );
       const callTypes = callTypesResult.rows;
 
       const callTypesWithSessions = await Promise.all(callTypes.map(async (ct) => {
-        const lastSessionResult = await db.query(
+        const lastSessionResult = await db(
           'SELECT * FROM sessions_calls WHERE call_type_id = $1 ORDER BY created_at DESC LIMIT 1',
           [ct.id]
         );
-        const totalSessionsResult = await db.query(
+        const totalSessionsResult = await db(
           'SELECT COUNT(*) as count FROM sessions_calls WHERE call_type_id = $1',
           [ct.id]
         );
@@ -55,14 +55,14 @@ router.get('/', requireAuth, async (req, res) => {
       return { ...model, callTypes: callTypesWithSessions };
     }));
 
-    const totalCallTypesResult = await db.query(
+    const totalCallTypesResult = await db(
       `SELECT COUNT(*) as count FROM call_types ct
        JOIN models m ON ct.model_id = m.id
        WHERE m.user_id = $1`,
       [req.session.userId]
     );
 
-    const activeSessionsResult = await db.query(
+    const activeSessionsResult = await db(
       `SELECT COUNT(*) as count FROM sessions_calls sc
        JOIN call_types ct ON sc.call_type_id = ct.id
        JOIN models m ON ct.model_id = m.id
@@ -91,7 +91,7 @@ router.get('/', requireAuth, async (req, res) => {
 
 router.get('/model/:id/sessions', requireAuth, async (req, res) => {
   try {
-    const result = await db.query(
+    const result = await db(
       `SELECT sc.*, ct.name as call_type_name,
        CASE
          WHEN sc.started_at IS NOT NULL AND sc.ended_at IS NOT NULL
@@ -113,7 +113,7 @@ router.get('/model/:id/sessions', requireAuth, async (req, res) => {
 
 router.get('/calltype/:id/sessions', requireAuth, async (req, res) => {
   try {
-    const result = await db.query(
+    const result = await db(
       `SELECT *,
        CASE
          WHEN started_at IS NOT NULL AND ended_at IS NOT NULL
