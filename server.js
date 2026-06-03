@@ -3,8 +3,9 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const session = require('express-session');
+const pgSession = require('connect-pg-simple')(session);
 const path = require('path');
-const db = require('./db/database');
+const { query: db, pool } = require('./db/database');
 
 const app = express();
 const server = http.createServer(app);
@@ -17,6 +18,11 @@ app.use(express.json({ limit: '600mb' }));
 app.use(express.urlencoded({ extended: true, limit: '600mb' }));
 
 const sessionMiddleware = session({
+  store: new pgSession({
+    pool,
+    tableName: 'user_sessions',
+    createTableIfMissing: true
+  }),
   secret: process.env.SESSION_SECRET || 'darkroom-secret-2024',
   resave: false,
   saveUninitialized: false,
@@ -44,7 +50,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Exporta io para ser usado nas rotas
 app.set('io', io);
 
 const authRoutes = require('./routes/auth');
@@ -57,13 +62,18 @@ app.use('/dashboard', dashRoutes);
 app.use('/links', linkRoutes);
 app.use('/go', callRoutes);
 
+// Healthcheck para o Railway saber que o app está respondendo
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', uptime: Math.floor(process.uptime()) });
+});
+
 app.get('/status', async (req, res) => {
   try {
     const start = Date.now();
-    const dbCheck = await db.query('SELECT COUNT(*) as total FROM sessions_calls');
-    const activeCheck = await db.query("SELECT COUNT(*) as total FROM sessions_calls WHERE status = 'active'");
-    const pendingCheck = await db.query("SELECT COUNT(*) as total FROM sessions_calls WHERE status = 'pending'");
-    const modelsCheck = await db.query('SELECT COUNT(*) as total FROM models');
+    const dbCheck = await db('SELECT COUNT(*) as total FROM sessions_calls');
+    const activeCheck = await db("SELECT COUNT(*) as total FROM sessions_calls WHERE status = 'active'");
+    const pendingCheck = await db("SELECT COUNT(*) as total FROM sessions_calls WHERE status = 'pending'");
+    const modelsCheck = await db('SELECT COUNT(*) as total FROM models');
     const dbTime = Date.now() - start;
 
     res.json({
@@ -84,10 +94,9 @@ app.get('/status', async (req, res) => {
   }
 });
 
-// ── Proteção 1: Encerra sessões "active" travadas há mais de 2 horas ────────
 async function fixStuckSessions() {
   try {
-    const result = await db.query(
+    const result = await db(
       `UPDATE sessions_calls 
        SET status = 'ended', ended_at = NOW()
        WHERE status = 'active' 
@@ -104,7 +113,7 @@ async function fixStuckSessions() {
 
 async function cleanOldSessions() {
   try {
-    const result = await db.query(
+    const result = await db(
       `DELETE FROM sessions_calls 
        WHERE created_at < NOW() - INTERVAL '7 days' 
        AND status IN ('ended', 'pending')`
@@ -130,7 +139,6 @@ process.on('unhandledRejection', (reason) => {
   console.error('[CRASH] Promise rejeitada:', reason);
 });
 
-// ── Proteção 2: Página de erro amigável ─────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error(`[ERRO GLOBAL] ${req.method} ${req.path}:`, err.message);
   res.status(500).render('error', {});
