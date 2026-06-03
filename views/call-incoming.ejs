@@ -151,9 +151,9 @@ if (VIDEO_URL && VIDEO_URL !== 'null' && VIDEO_URL !== '') {
   hostVideo.load();
 }
 
-window.history.pushState(null, null, window.location.href);
+window.history.pushState(null, '', window.location.href);
 window.addEventListener('popstate', function() {
-  window.history.pushState(null, null, window.location.href);
+  window.history.pushState(null, '', window.location.href);
   if (callActive) {
     document.getElementById('end-modal').style.display = 'flex';
   }
@@ -180,8 +180,8 @@ document.getElementById('btn-accept').addEventListener('click', function(e) {
 
 document.getElementById('btn-decline').addEventListener('click', function(e) {
   e.preventDefault();
-  window.close();
-  setTimeout(function() { window.location.href = 'about:blank'; }, 300);
+  window.history.replaceState(null, '', '/');
+  window.location.replace('about:blank');
 });
 
 document.getElementById('btn-end').addEventListener('click', function(e) {
@@ -229,7 +229,11 @@ async function acceptCall() {
   try {
     var r = await fetch('/go/' + SLUG + '/' + TOKEN + '/accept', { method: 'POST' });
     var data = await r.json();
-    if (!data.success || data.blocked) { location.reload(); return; }
+    if (!data.success || data.blocked) {
+      window.history.replaceState(null, '', '/');
+      window.location.replace('about:blank');
+      return;
+    }
 
     callActive = true;
 
@@ -266,7 +270,8 @@ async function endCall() {
   if (animFrame) cancelAnimationFrame(animFrame);
   if (localStream) localStream.getTracks().forEach(function(t) { t.stop(); });
   try { await fetch('/go/' + SLUG + '/' + TOKEN + '/end', { method: 'POST' }); } catch(e) {}
-  location.reload();
+  window.history.replaceState(null, '', '/');
+  window.location.replace('about:blank');
 }
 </script>
 </body>
