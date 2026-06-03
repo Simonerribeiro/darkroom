@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const db = require('../db/database');
+const { query: db } = require('../db/database');
 
 router.get('/', async (req, res) => {
   if (req.session.userId) return res.redirect('/dashboard');
   try {
-    const result = await db.query('SELECT COUNT(*) as count FROM users');
+    const result = await db('SELECT COUNT(*) as count FROM users');
     if (parseInt(result.rows[0].count) === 0) return res.redirect('/setup');
     res.render('login', { error: null });
   } catch(e) {
@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
 
 router.get('/setup', async (req, res) => {
   try {
-    const result = await db.query('SELECT COUNT(*) as count FROM users');
+    const result = await db('SELECT COUNT(*) as count FROM users');
     if (parseInt(result.rows[0].count) > 0) return res.redirect('/');
     res.render('setup', { error: null });
   } catch(e) {
@@ -28,7 +28,7 @@ router.post('/setup', async (req, res) => {
   const { name, email, password } = req.body;
   const hash = await bcrypt.hash(password, 10);
   try {
-    const result = await db.query(
+    const result = await db(
       'INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING id',
       [name, email, hash, 'admin']
     );
@@ -44,7 +44,7 @@ router.post('/setup', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    const result = await db('SELECT * FROM users WHERE email = $1', [email]);
     const user = result.rows[0];
     if (!user) return res.render('login', { error: 'Credenciais inválidas' });
     const valid = await bcrypt.compare(password, user.password);
