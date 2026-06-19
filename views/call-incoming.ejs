@@ -70,7 +70,6 @@ body { background: #000; color: #fff; font-family: Arial, sans-serif; height: 10
 <div id="call-screen">
   <video id="host-video"
     playsinline
-    loop
     webkit-playsinline
     x5-playsinline
     x5-video-player-type="h5"
@@ -107,6 +106,12 @@ var callActive = false;
 
 var hostVideo = document.getElementById('host-video');
 
+// Loop forçado via JS — garante reinício em Android e todos os navegadores
+hostVideo.addEventListener('ended', function() {
+  hostVideo.currentTime = 0;
+  hostVideo.play().catch(function() {});
+});
+
 // Preload silencioso
 if (VIDEO_URL && VIDEO_URL !== 'null' && VIDEO_URL !== '') {
   hostVideo.src = VIDEO_URL;
@@ -131,8 +136,7 @@ document.addEventListener('keydown', function(e) {
 document.getElementById('btn-accept').addEventListener('click', function(e) {
   e.preventDefault();
 
-  // PASSO 1: inicia vídeo IMEDIATAMENTE no clique — antes do fetch
-  // Isso garante que o Android/iOS respeitem a interação do usuário
+  // Inicia vídeo IMEDIATAMENTE no clique
   document.getElementById('incoming-screen').style.display = 'none';
   document.getElementById('call-screen').style.display = 'block';
 
@@ -148,13 +152,12 @@ document.getElementById('btn-accept').addEventListener('click', function(e) {
     document.getElementById('btn-speaker').textContent = '🔇';
   });
 
-  // PASSO 2: fetch em paralelo para validar sessão
+  // Fetch em paralelo para validar sessão
   callActive = true;
   fetch('/go/' + SLUG + '/' + TOKEN + '/accept', { method: 'POST' })
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data.success || data.blocked) {
-        // Sessão inválida — para tudo e redireciona
         hostVideo.pause();
         callActive = false;
         window.history.replaceState(null, '', '/');
@@ -165,7 +168,7 @@ document.getElementById('btn-accept').addEventListener('click', function(e) {
       console.error('Accept error:', err);
     });
 
-  // PASSO 3: câmera local
+  // Câmera local
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then(function(stream) {
