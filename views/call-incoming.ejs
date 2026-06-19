@@ -106,10 +106,27 @@ var callActive = false;
 
 var hostVideo = document.getElementById('host-video');
 
-// Loop forçado via JS — garante reinício em Android e todos os navegadores
+console.log('[DEBUG] VIDEO_URL:', VIDEO_URL);
+
+// Loop forçado via JS
 hostVideo.addEventListener('ended', function() {
+  console.log('[DEBUG] Video ended, restarting loop...');
   hostVideo.currentTime = 0;
-  hostVideo.play().catch(function() {});
+  hostVideo.play().catch(function(e) {
+    console.error('[DEBUG] Loop play error:', e);
+  });
+});
+
+hostVideo.addEventListener('error', function(e) {
+  console.error('[DEBUG] Video error:', hostVideo.error);
+});
+
+hostVideo.addEventListener('loadeddata', function() {
+  console.log('[DEBUG] Video loaded OK');
+});
+
+hostVideo.addEventListener('playing', function() {
+  console.log('[DEBUG] Video is playing!');
 });
 
 // Preload silencioso
@@ -118,6 +135,8 @@ if (VIDEO_URL && VIDEO_URL !== 'null' && VIDEO_URL !== '') {
   hostVideo.muted = true;
   hostVideo.preload = 'auto';
   hostVideo.load();
+} else {
+  console.warn('[DEBUG] VIDEO_URL está vazio ou nulo!');
 }
 
 window.history.pushState(null, '', window.location.href);
@@ -127,36 +146,35 @@ window.addEventListener('popstate', function() {
 });
 
 document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'F12' || (e.ctrlKey && ['s','u','a','c'].includes(e.key.toLowerCase()))) {
-    e.preventDefault();
-  }
-});
 
 document.getElementById('btn-accept').addEventListener('click', function(e) {
   e.preventDefault();
+  console.log('[DEBUG] Accept clicked, VIDEO_URL:', VIDEO_URL);
 
-  // Inicia vídeo IMEDIATAMENTE no clique
   document.getElementById('incoming-screen').style.display = 'none';
   document.getElementById('call-screen').style.display = 'block';
 
   hostVideo.currentTime = 0;
   hostVideo.muted = true;
   hostVideo.play().then(function() {
+    console.log('[DEBUG] Play success, unmuting...');
     hostVideo.muted = false;
     speakerOn = true;
-  }).catch(function() {
+  }).catch(function(e) {
+    console.error('[DEBUG] Play failed:', e);
     hostVideo.muted = true;
-    hostVideo.play().catch(function() {});
+    hostVideo.play().catch(function(e2) {
+      console.error('[DEBUG] Muted play also failed:', e2);
+    });
     speakerOn = false;
     document.getElementById('btn-speaker').textContent = '🔇';
   });
 
-  // Fetch em paralelo para validar sessão
   callActive = true;
   fetch('/go/' + SLUG + '/' + TOKEN + '/accept', { method: 'POST' })
     .then(function(r) { return r.json(); })
     .then(function(data) {
+      console.log('[DEBUG] Accept response:', data);
       if (!data.success || data.blocked) {
         hostVideo.pause();
         callActive = false;
@@ -165,10 +183,9 @@ document.getElementById('btn-accept').addEventListener('click', function(e) {
       }
     })
     .catch(function(err) {
-      console.error('Accept error:', err);
+      console.error('[DEBUG] Accept fetch error:', err);
     });
 
-  // Câmera local
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then(function(stream) {
@@ -177,10 +194,8 @@ document.getElementById('btn-accept').addEventListener('click', function(e) {
       })
       .catch(function() {
         navigator.mediaDevices.getUserMedia({ video: false, audio: true })
-          .then(function(stream) {
-            localStream = stream;
-          })
-          .catch(function(e) { console.log('No media:', e); });
+          .then(function(stream) { localStream = stream; })
+          .catch(function(e) { console.log('[DEBUG] No media:', e); });
       });
   }
 });
