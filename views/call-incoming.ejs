@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
 <title><%= link.host_name %> está te esperando</title>
 <meta property="og:type" content="website">
 <meta property="og:url" content="<%= baseUrl %>/go/<%= link.slug %>/<%= token %>">
@@ -29,7 +30,15 @@ body { background: #000; color: #fff; font-family: Arial, sans-serif; height: 10
 
 #call-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; }
 
-#host-video { display: none; }
+#host-video {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+  display: none;
+}
 
 #host-canvas {
   position: absolute;
@@ -54,6 +63,11 @@ body { background: #000; color: #fff; font-family: Arial, sans-serif; height: 10
 .end-box p { font-size: 14px; color: #aaa; line-height: 1.6; margin-bottom: 1.5rem; }
 .btn-end-confirm { display: block; width: 100%; background: #e74c3c; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 10px; touch-action: manipulation; }
 .btn-end-cancel { display: block; width: 100%; background: #2a2a2a; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; cursor: pointer; touch-action: manipulation; }
+
+#loading-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 50; align-items: center; justify-content: center; flex-direction: column; gap: 1rem; }
+.loading-spinner { width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.2); border-top-color: #27ae60; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { color: #aaa; font-size: 0.9rem; }
 </style>
 </head>
 <body>
@@ -70,8 +84,26 @@ body { background: #000; color: #fff; font-family: Arial, sans-serif; height: 10
   <p class="incoming-hint">Toque em aceitar para entrar na chamada</p>
 </div>
 
+<!-- Tela de carregamento enquanto vídeo inicia -->
+<div id="loading-screen" style="display:none;">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Conectando...</div>
+</div>
+
 <div id="call-screen">
-  <video id="host-video" playsinline loop muted webkit-playsinline crossorigin="anonymous" style="display:none;"></video>
+  <video id="host-video"
+    playsinline
+    loop
+    muted
+    autoplay
+    x-webkit-airplay="allow"
+    webkit-playsinline="true"
+    x5-playsinline="true"
+    x5-video-player-type="h5"
+    x5-video-player-fullscreen="true"
+    preload="auto"
+    style="display:none;">
+  </video>
   <canvas id="host-canvas"></canvas>
   <video id="local-video" autoplay playsinline muted webkit-playsinline></video>
   <div class="call-controls">
@@ -102,6 +134,7 @@ var speakerOn = true;
 var callActive = false;
 var animFrame = null;
 var videoReady = false;
+var useCanvas = true;
 
 var hostVideo = document.getElementById('host-video');
 var canvas = document.getElementById('host-canvas');
@@ -109,6 +142,10 @@ var ctx = canvas.getContext('2d');
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
+
+// Detecta se é iOS Safari — precisa de tratamento especial
+var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
 function drawFrame() {
   if (hostVideo.readyState >= 2 && hostVideo.videoWidth > 0) {
@@ -130,25 +167,17 @@ function renderLoop() {
   animFrame = requestAnimationFrame(renderLoop);
 }
 
-// PRELOAD: carrega o vídeo imediatamente em background ao abrir a página
+// PRELOAD silencioso em background
 if (VIDEO_URL && VIDEO_URL !== 'null' && VIDEO_URL !== '') {
   hostVideo.src = VIDEO_URL;
   hostVideo.muted = true;
   hostVideo.preload = 'auto';
-  hostVideo.currentTime = 0;
-
-  hostVideo.addEventListener('loadeddata', function() {
-    hostVideo.currentTime = 0;
-    videoReady = true;
-  });
-
-  hostVideo.addEventListener('seeked', function onFirstSeek() {
-    hostVideo.removeEventListener('seeked', onFirstSeek);
-    drawFrame();
-    videoReady = true;
-  });
 
   hostVideo.addEventListener('canplaythrough', function() {
+    videoReady = true;
+  });
+
+  hostVideo.addEventListener('loadeddata', function() {
     videoReady = true;
   });
 
@@ -229,42 +258,82 @@ document.getElementById('btn-speaker').addEventListener('click', function(e) {
   this.textContent = speakerOn ? '🔊' : '🔇';
 });
 
+function showLoading() {
+  document.getElementById('loading-screen').style.display = 'flex';
+}
+
+function hideLoading() {
+  document.getElementById('loading-screen').style.display = 'none';
+}
+
+async function startVideo() {
+  return new Promise(function(resolve) {
+    hostVideo.currentTime = 0;
+    hostVideo.muted = true;
+
+    // Tenta play com som primeiro
+    var playPromise = hostVideo.play();
+
+    if (playPromise !== undefined) {
+      playPromise.then(function() {
+        // Play funcionou mutado — tenta ativar som
+        hostVideo.muted = false;
+        speakerOn = true;
+        resolve();
+      }).catch(function() {
+        // Autoplay bloqueado — tenta mutado
+        hostVideo.muted = true;
+        hostVideo.play().then(function() {
+          speakerOn = false;
+          document.getElementById('btn-speaker').textContent = '🔇';
+          resolve();
+        }).catch(function() {
+          // Último recurso — força play no iOS
+          hostVideo.load();
+          hostVideo.play().catch(function() {});
+          resolve();
+        });
+      });
+    } else {
+      resolve();
+    }
+  });
+}
+
 async function acceptCall() {
   try {
+    showLoading();
     var r = await fetch('/go/' + SLUG + '/' + TOKEN + '/accept', { method: 'POST' });
     var data = await r.json();
     if (!data.success || data.blocked) {
+      hideLoading();
       window.history.replaceState(null, '', '/');
       window.location.replace('about:blank');
       return;
     }
 
     callActive = true;
-
     document.getElementById('incoming-screen').style.display = 'none';
     document.getElementById('call-screen').style.display = 'block';
 
+    // Inicia render loop e vídeo
     renderLoop();
+    await startVideo();
+    hideLoading();
 
-    hostVideo.currentTime = 0;
-    hostVideo.muted = true;
-    hostVideo.play().then(function() {
-      hostVideo.muted = false;
-      speakerOn = true;
-    }).catch(function() {
-      hostVideo.muted = true;
-      hostVideo.play();
-    });
-
+    // Câmera local
     try {
       localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       document.getElementById('local-video').srcObject = localStream;
     } catch(e) {
       try {
         localStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-      } catch(e2) { console.log('No media:', e2); }
+      } catch(e2) {
+        console.log('No media:', e2);
+      }
     }
   } catch(err) {
+    hideLoading();
     console.error('Error:', err);
   }
 }
