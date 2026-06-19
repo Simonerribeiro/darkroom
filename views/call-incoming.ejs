@@ -130,18 +130,25 @@ function renderLoop() {
   animFrame = requestAnimationFrame(renderLoop);
 }
 
+// PRELOAD: carrega o vídeo imediatamente em background ao abrir a página
 if (VIDEO_URL && VIDEO_URL !== 'null' && VIDEO_URL !== '') {
   hostVideo.src = VIDEO_URL;
   hostVideo.muted = true;
+  hostVideo.preload = 'auto';
   hostVideo.currentTime = 0;
 
   hostVideo.addEventListener('loadeddata', function() {
     hostVideo.currentTime = 0;
+    videoReady = true;
   });
 
   hostVideo.addEventListener('seeked', function onFirstSeek() {
     hostVideo.removeEventListener('seeked', onFirstSeek);
     drawFrame();
+    videoReady = true;
+  });
+
+  hostVideo.addEventListener('canplaythrough', function() {
     videoReady = true;
   });
 
