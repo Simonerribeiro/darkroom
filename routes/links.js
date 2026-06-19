@@ -3,7 +3,6 @@ const router = express.Router();
 const { query: db } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const multer = require('multer');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegStatic = require('ffmpeg-static');
@@ -51,24 +50,36 @@ function compressVideo(inputPath, outputPath) {
   });
 }
 
-router.post('/presign', requireAuth, async (req, res) => {
+// Upload com conversão automática para MP4 — funciona para MOV, MP4, WebM, qualquer formato
+router.post('/presign', requireAuth, upload.single('video'), async (req, res) => {
+  const tmpInput = path.join(os.tmpdir(), `input-${uuidv4()}.tmp`);
+  const tmpOutput = path.join(os.tmpdir(), `output-${uuidv4()}.mp4`);
   try {
-    const { filename, contentType } = req.body;
-    if (!filename || !contentType) {
-      return res.json({ success: false, error: 'filename e contentType obrigatorios' });
-    }
-    const key = `videos/${uuidv4()}-${filename}`;
-    const command = new PutObjectCommand({
+    if (!req.file) return res.json({ success: false, error: 'Nenhum arquivo enviado' });
+
+    fs.writeFileSync(tmpInput, req.file.buffer);
+    console.log('[VIDEO] Convertendo para MP4...');
+    await compressVideo(tmpInput, tmpOutput);
+    console.log('[VIDEO] Conversão concluída');
+
+    const compressed = fs.readFileSync(tmpOutput);
+    const key = `videos/${uuidv4()}-converted.mp4`;
+
+    await s3.send(new PutObjectCommand({
       Bucket: process.env.R2_BUCKET,
       Key: key,
-      ContentType: contentType
-    });
-    const signedUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
+      Body: compressed,
+      ContentType: 'video/mp4'
+    }));
+
     const publicUrl = `${process.env.R2_PUBLIC_URL}/${key}`;
-    res.json({ success: true, signedUrl, publicUrl, key });
+    res.json({ success: true, signedUrl: null, publicUrl, key });
   } catch (e) {
-    console.error('Presign error:', e.message);
+    console.error('Presign/convert error:', e.message);
     res.json({ success: false, error: e.message });
+  } finally {
+    try { fs.unlinkSync(tmpInput); } catch(e) {}
+    try { fs.unlinkSync(tmpOutput); } catch(e) {}
   }
 });
 
