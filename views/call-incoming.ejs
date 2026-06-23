@@ -12,80 +12,113 @@
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="<%= link.host_name %> está te esperando">
 <meta name="twitter:description" content="A participante está na conversa te esperando, acesse agora">
+<link rel="stylesheet" href="/css/call.css">
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #000; color: #fff; font-family: Arial, sans-serif; height: 100vh; overflow: hidden; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
-
-#incoming-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 2rem; text-align: center; background: #0a0a0a; }
-.incoming-name { font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; margin-top: 1.5rem; }
-.incoming-label { font-size: 1rem; color: #aaa; margin-bottom: 0.25rem; }
-.incoming-sub { font-size: 0.85rem; color: #555; margin-bottom: 3rem; }
-.incoming-icon { font-size: 5rem; }
-.incoming-hint { font-size: 0.8rem; color: #444; margin-top: 1.5rem; }
-
-.incoming-buttons { display: flex; gap: 4rem; align-items: center; justify-content: center; }
-.btn-decline { width: 72px; height: 72px; border-radius: 50%; border: none; background: #e74c3c; font-size: 1.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-.btn-accept { width: 72px; height: 72px; border-radius: 50%; border: none; background: #27ae60; font-size: 1.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; touch-action: manipulation; animation: pulse-green 1.5s infinite; }
-@keyframes pulse-green { 0%,100% { box-shadow: 0 0 0 0 rgba(39,174,96,0.5); } 50% { box-shadow: 0 0 0 20px rgba(39,174,96,0); } }
-
-#call-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; }
-
-#host-video {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: 1;
+/* ── Loading overlay ── */
+#loading-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 50;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
 }
+#loading-overlay.visible { display: flex; }
+.spinner {
+  width: 48px; height: 48px;
+  border: 4px solid rgba(255,255,255,0.15);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { color: #aaa; font-size: 0.9rem; font-family: Arial, sans-serif; }
 
-#local-video { position: absolute; top: 16px; right: 16px; width: 90px; height: 130px; object-fit: cover; border-radius: 10px; z-index: 10; border: 2px solid rgba(255,255,255,0.3); background: #222; }
-
-.call-controls { position: absolute; bottom: 0; left: 0; right: 0; padding: 1.5rem 2rem 3rem; display: flex; align-items: center; justify-content: center; gap: 1.2rem; background: linear-gradient(transparent, rgba(0,0,0,0.8)); z-index: 20; }
-.ctrl-btn { width: 54px; height: 54px; border-radius: 50%; border: none; background: rgba(255,255,255,0.2); color: #fff; font-size: 1.4rem; cursor: pointer; display: flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-.ctrl-btn.end { background: #e74c3c; width: 62px; height: 62px; }
-
-#end-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; background: rgba(0,0,0,0.6); align-items: flex-end; justify-content: center; padding: 1rem; }
-.end-box { background: #1a1a1a; border-radius: 16px; padding: 1.75rem; width: 100%; max-width: 400px; text-align: center; margin-bottom: 1rem; }
-.end-box h2 { font-size: 18px; font-weight: 700; margin-bottom: 1rem; }
-.end-box p { font-size: 14px; color: #aaa; line-height: 1.6; margin-bottom: 1.5rem; }
-.btn-end-confirm { display: block; width: 100%; background: #e74c3c; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; margin-bottom: 10px; touch-action: manipulation; }
-.btn-end-cancel { display: block; width: 100%; background: #2a2a2a; color: #fff; border: none; border-radius: 10px; padding: 14px; font-size: 15px; cursor: pointer; touch-action: manipulation; }
+/* ── Erro de vídeo ── */
+#video-error {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  background: #0a0a0a;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+  gap: 1rem;
+}
+#video-error.visible { display: flex; }
+#video-error p { color: #aaa; font-size: 0.9rem; font-family: Arial, sans-serif; }
+#btn-retry {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 2rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  font-family: Arial, sans-serif;
+  margin-top: 0.5rem;
+}
 </style>
 </head>
 <body>
 
+<!-- TELA DE CHAMADA RECEBIDA -->
 <div id="incoming-screen">
+  <div class="incoming-ring"></div>
   <div class="incoming-icon">📞</div>
   <h1 class="incoming-name"><%= link.host_name %></h1>
   <p class="incoming-label">Chamada de vídeo recebida</p>
   <p class="incoming-sub">Entrando como Lead</p>
   <div class="incoming-buttons">
-    <button class="btn-decline" id="btn-decline">✕</button>
-    <button class="btn-accept" id="btn-accept">📞</button>
+    <button class="btn-decline" id="btn-decline" aria-label="Recusar chamada">✕</button>
+    <button class="btn-accept" id="btn-accept" aria-label="Aceitar chamada">📞</button>
   </div>
   <p class="incoming-hint">Toque em aceitar para entrar na chamada</p>
 </div>
 
-<div id="call-screen">
+<!-- LOADING ENQUANTO VÍDEO CARREGA -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <p class="loading-text">Conectando...</p>
+</div>
+
+<!-- TELA DE CHAMADA ATIVA -->
+<div id="call-screen" class="call-screen" style="display:none;">
   <video id="host-video"
     playsinline
     webkit-playsinline
     x5-playsinline
     x5-video-player-type="h5"
     x5-video-player-fullscreen="true"
-    preload="auto">
+    preload="auto"
+    muted>
   </video>
+
+  <!-- Erro de carregamento de vídeo -->
+  <div id="video-error">
+    <p>⚠️ Não foi possível carregar o vídeo.<br>Verifique sua conexão e tente novamente.</p>
+    <button id="btn-retry">Tentar novamente</button>
+  </div>
+
   <video id="local-video" autoplay playsinline muted webkit-playsinline></video>
+
   <div class="call-controls">
-    <button class="ctrl-btn" id="btn-mic">🎤</button>
-    <button class="ctrl-btn" id="btn-cam">📷</button>
-    <button class="ctrl-btn" id="btn-speaker">🔊</button>
-    <button class="ctrl-btn end" id="btn-end">📵</button>
+    <button class="ctrl-btn" id="btn-mic" aria-label="Microfone">🎤</button>
+    <button class="ctrl-btn" id="btn-cam" aria-label="Câmera">📷</button>
+    <button class="ctrl-btn" id="btn-speaker" aria-label="Alto-falante">🔊</button>
+    <button class="ctrl-btn end" id="btn-end" aria-label="Encerrar chamada">📵</button>
   </div>
 </div>
 
-<div id="end-modal">
+<!-- MODAL DE ENCERRAR -->
+<div id="end-modal" class="end-modal">
   <div class="end-box">
     <h2>Encerrar chamada?</h2>
     <p>Esta é uma sessão de acesso único — uma vez que você sair, não poderá retornar.</p>
@@ -95,121 +128,164 @@ body { background: #000; color: #fff; font-family: Arial, sans-serif; height: 10
 </div>
 
 <script>
-var SLUG = '<%= link.slug %>';
-var TOKEN = '<%= session.session_token %>';
+var SLUG      = '<%= link.slug %>';
+var TOKEN     = '<%= session.session_token %>';
 var VIDEO_URL = '<%= link.video_url %>';
+
+var hostVideo      = document.getElementById('host-video');
+var localVideo     = document.getElementById('local-video');
+var loadingEl      = document.getElementById('loading-overlay');
+var callScreen     = document.getElementById('call-screen');
+var incomingScreen = document.getElementById('incoming-screen');
+var videoError     = document.getElementById('video-error');
+
 var localStream = null;
-var micOn = true;
-var camOn = true;
-var speakerOn = true;
-var callActive = false;
+var micOn       = true;
+var camOn       = true;
+var speakerOn   = true;
+var callActive  = false;
+var playRetries = 0;
+var MAX_RETRIES = 3;
 
-var hostVideo = document.getElementById('host-video');
-
-console.log('[DEBUG] VIDEO_URL:', VIDEO_URL);
-
-// Loop forçado via JS
-hostVideo.addEventListener('ended', function() {
-  console.log('[DEBUG] Video ended, restarting loop...');
-  hostVideo.currentTime = 0;
-  hostVideo.play().catch(function(e) {
-    console.error('[DEBUG] Loop play error:', e);
-  });
+// ── Previne gestos de voltar ──────────────────────────────────────────────────
+window.history.pushState(null, '', window.location.href);
+window.addEventListener('popstate', function() {
+  window.history.pushState(null, '', window.location.href);
+  if (callActive) showEndModal();
 });
+document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
 
-hostVideo.addEventListener('error', function(e) {
-  console.error('[DEBUG] Video error:', hostVideo.error);
-});
-
-hostVideo.addEventListener('loadeddata', function() {
-  console.log('[DEBUG] Video loaded OK');
-});
-
-hostVideo.addEventListener('playing', function() {
-  console.log('[DEBUG] Video is playing!');
-});
-
-// Preload silencioso
+// ── Pré-carrega o vídeo silenciosamente ──────────────────────────────────────
 if (VIDEO_URL && VIDEO_URL !== 'null' && VIDEO_URL !== '') {
   hostVideo.src = VIDEO_URL;
   hostVideo.muted = true;
   hostVideo.preload = 'auto';
   hostVideo.load();
 } else {
-  console.warn('[DEBUG] VIDEO_URL está vazio ou nulo!');
+  console.warn('[Darkroom] VIDEO_URL ausente');
 }
 
-window.history.pushState(null, '', window.location.href);
-window.addEventListener('popstate', function() {
-  window.history.pushState(null, '', window.location.href);
-  if (callActive) document.getElementById('end-modal').style.display = 'flex';
+// ── Reinício do loop ─────────────────────────────────────────────────────────
+hostVideo.addEventListener('ended', function() {
+  hostVideo.currentTime = 0;
+  hostVideo.play().catch(function() {});
 });
 
-document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+// ── Erro de carregamento ─────────────────────────────────────────────────────
+hostVideo.addEventListener('error', function() {
+  hideLoading();
+  if (callActive) showVideoError();
+});
 
+// ── Aceitar chamada ───────────────────────────────────────────────────────────
 document.getElementById('btn-accept').addEventListener('click', function(e) {
   e.preventDefault();
-  console.log('[DEBUG] Accept clicked, VIDEO_URL:', VIDEO_URL);
+  incomingScreen.style.display = 'none';
+  showLoading();
+  startCall();
+});
 
-  document.getElementById('incoming-screen').style.display = 'none';
-  document.getElementById('call-screen').style.display = 'block';
-
-  hostVideo.currentTime = 0;
-  hostVideo.muted = true;
-  hostVideo.play().then(function() {
-    console.log('[DEBUG] Play success, unmuting...');
-    hostVideo.muted = false;
-    speakerOn = true;
-  }).catch(function(e) {
-    console.error('[DEBUG] Play failed:', e);
-    hostVideo.muted = true;
-    hostVideo.play().catch(function(e2) {
-      console.error('[DEBUG] Muted play also failed:', e2);
-    });
-    speakerOn = false;
-    document.getElementById('btn-speaker').textContent = '🔇';
-  });
-
+function startCall() {
   callActive = true;
+
+  // Marca sessão como ativa no servidor
   fetch('/go/' + SLUG + '/' + TOKEN + '/accept', { method: 'POST' })
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      console.log('[DEBUG] Accept response:', data);
       if (!data.success || data.blocked) {
-        hostVideo.pause();
         callActive = false;
-        window.history.replaceState(null, '', '/');
-        window.location.replace('about:blank');
+        hideLoading();
+        leaveBlank();
       }
     })
-    .catch(function(err) {
-      console.error('[DEBUG] Accept fetch error:', err);
-    });
+    .catch(function() {});
 
+  // Inicia câmera local (silencioso se negar)
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       .then(function(stream) {
         localStream = stream;
-        document.getElementById('local-video').srcObject = stream;
+        localVideo.srcObject = stream;
       })
       .catch(function() {
         navigator.mediaDevices.getUserMedia({ video: false, audio: true })
           .then(function(stream) { localStream = stream; })
-          .catch(function(e) { console.log('[DEBUG] No media:', e); });
+          .catch(function() {});
       });
   }
+
+  // Toca o vídeo
+  playVideo();
+}
+
+function playVideo() {
+  hostVideo.currentTime = 0;
+  hostVideo.muted = true; // Obrigatório no iOS/Safari para autoplay funcionar
+
+  var playPromise = hostVideo.play();
+
+  if (playPromise !== undefined) {
+    playPromise.then(function() {
+      onVideoPlaying();
+    }).catch(function(err) {
+      console.warn('[Darkroom] play() falhou:', err.name, err.message);
+
+      if (playRetries < MAX_RETRIES) {
+        playRetries++;
+        setTimeout(playVideo, 500 * playRetries);
+      } else {
+        // Última tentativa: toca mutado mesmo
+        hostVideo.muted = true;
+        hostVideo.play().then(function() {
+          speakerOn = false;
+          document.getElementById('btn-speaker').textContent = '🔇';
+          onVideoPlaying();
+        }).catch(function() {
+          hideLoading();
+          showVideoError();
+        });
+      }
+    });
+  } else {
+    // Navegadores antigos sem Promise
+    setTimeout(function() {
+      onVideoPlaying();
+    }, 800);
+  }
+}
+
+function onVideoPlaying() {
+  hideLoading();
+  callScreen.style.display = 'block';
+
+  // Desmuta após pequeno delay (Safari exige isso)
+  setTimeout(function() {
+    if (speakerOn) {
+      hostVideo.muted = false;
+    }
+  }, 300);
+}
+
+// ── Botão de retry no erro de vídeo ─────────────────────────────────────────
+document.getElementById('btn-retry').addEventListener('click', function() {
+  videoError.classList.remove('visible');
+  playRetries = 0;
+  showLoading();
+  hostVideo.load();
+  playVideo();
 });
 
+// ── Recusar chamada ───────────────────────────────────────────────────────────
 document.getElementById('btn-decline').addEventListener('click', function(e) {
   e.preventDefault();
-  window.history.replaceState(null, '', '/');
-  window.location.replace('about:blank');
+  leaveBlank();
 });
 
+// ── Controles ─────────────────────────────────────────────────────────────────
 document.getElementById('btn-end').addEventListener('click', function(e) {
   e.preventDefault();
   e.stopPropagation();
-  document.getElementById('end-modal').style.display = 'flex';
+  showEndModal();
 });
 
 document.getElementById('btn-end-confirm').addEventListener('click', function(e) {
@@ -224,34 +300,49 @@ document.getElementById('btn-end-cancel').addEventListener('click', function(e) 
   document.getElementById('end-modal').style.display = 'none';
 });
 
-document.getElementById('btn-mic').addEventListener('click', function(e) {
-  e.preventDefault();
+document.getElementById('btn-mic').addEventListener('click', function() {
   if (!localStream) return;
   micOn = !micOn;
   localStream.getAudioTracks().forEach(function(t) { t.enabled = micOn; });
   this.style.opacity = micOn ? '1' : '0.4';
 });
 
-document.getElementById('btn-cam').addEventListener('click', function(e) {
-  e.preventDefault();
+document.getElementById('btn-cam').addEventListener('click', function() {
   if (!localStream) return;
   camOn = !camOn;
   localStream.getVideoTracks().forEach(function(t) { t.enabled = camOn; });
   this.style.opacity = camOn ? '1' : '0.4';
 });
 
-document.getElementById('btn-speaker').addEventListener('click', function(e) {
-  e.preventDefault();
+document.getElementById('btn-speaker').addEventListener('click', function() {
   speakerOn = !speakerOn;
   hostVideo.muted = !speakerOn;
   this.textContent = speakerOn ? '🔊' : '🔇';
 });
 
+// ── Encerrar chamada ──────────────────────────────────────────────────────────
 async function endCall() {
   callActive = false;
   hostVideo.pause();
   if (localStream) localStream.getTracks().forEach(function(t) { t.stop(); });
   try { await fetch('/go/' + SLUG + '/' + TOKEN + '/end', { method: 'POST' }); } catch(e) {}
+  leaveBlank();
+}
+
+// ── Utilitários ───────────────────────────────────────────────────────────────
+function showLoading() {
+  loadingEl.classList.add('visible');
+}
+function hideLoading() {
+  loadingEl.classList.remove('visible');
+}
+function showEndModal() {
+  document.getElementById('end-modal').style.display = 'flex';
+}
+function showVideoError() {
+  videoError.classList.add('visible');
+}
+function leaveBlank() {
   window.history.replaceState(null, '', '/');
   window.location.replace('about:blank');
 }
