@@ -227,7 +227,7 @@ async function loadMonitor(ctId) {
       return;
     }
 
-    var html = '<table class="monitor-table"><thead><tr><th>Lead</th><th>Status</th><th>Criada em</th></tr></thead><tbody>';
+    var html = '<table class="monitor-table"><thead><tr><th>Lead</th><th>Status</th><th>Criada em</th><th></th></tr></thead><tbody>';
     sessions.forEach(function(s) {
       var statusClass, statusLabel;
       if (s.status === 'active') {
@@ -236,15 +236,22 @@ async function loadMonitor(ctId) {
       } else if (s.status === 'pending') {
         statusClass = 'monitor-badge-waiting';
         statusLabel = '⏱ Aguardando';
+      } else if (s.status === 'cancelled') {
+        statusClass = 'monitor-badge-cancelled';
+        statusLabel = '✕ Cancelada';
       } else {
         statusClass = 'monitor-badge-ended';
         statusLabel = '⊘ Finalizada';
       }
       var created = new Date(s.created_at).toLocaleString('pt-BR');
+      var action = s.status === 'pending'
+        ? '<button class="btn-cancel-session" data-cancel-session="' + s.id + '" data-ct="' + ctId + '" title="Cancelar link">Cancelar</button>'
+        : '';
       html += '<tr>' +
         '<td><span class="monitor-lead-icon">L</span> Lead</td>' +
         '<td><span class="monitor-badge ' + statusClass + '">' + statusLabel + '</span></td>' +
         '<td>' + created + '</td>' +
+        '<td>' + action + '</td>' +
         '</tr>';
     });
     html += '</tbody></table>';
@@ -441,6 +448,7 @@ document.addEventListener('click', async function(e) {
   var historyCt = e.target.getAttribute('data-history-ct');
   var editCt = e.target.getAttribute('data-edit-ct');
   var deleteCt = e.target.getAttribute('data-delete-ct');
+  var cancelSession = e.target.getAttribute('data-cancel-session');
 
   if (addCt) {
     document.getElementById('ct-model-id').value = addCt;
@@ -499,12 +507,15 @@ document.addEventListener('click', async function(e) {
         panel.innerHTML = '<div class="history-empty">Nenhuma sessão ainda</div>';
         return;
       }
-      var html = '<table class="history-table"><thead><tr><th>Status</th><th>Criada</th><th>Duração</th></tr></thead><tbody>';
+      var html = '<table class="history-table"><thead><tr><th>Status</th><th>Criada</th><th>Duração</th><th></th></tr></thead><tbody>';
       sessions.forEach(function(s) {
-        var badge = s.status === 'active' ? 'badge-active' : s.status === 'ended' ? 'badge-ended' : 'badge-pending';
-        var label = s.status === 'active' ? '● Ativa' : s.status === 'ended' ? '⊘ Finalizada' : '○ Pendente';
+        var badge = s.status === 'active' ? 'badge-active' : s.status === 'ended' ? 'badge-ended' : s.status === 'cancelled' ? 'badge-cancelled' : 'badge-pending';
+        var label = s.status === 'active' ? '● Ativa' : s.status === 'ended' ? '⊘ Finalizada' : s.status === 'cancelled' ? '✕ Cancelada' : '○ Pendente';
         var dur = s.duration_mins ? s.duration_mins + ' min' : '-';
-        html += '<tr><td><span class="badge ' + badge + '">' + label + '</span></td><td>' + new Date(s.created_at).toLocaleString('pt-BR') + '</td><td>' + dur + '</td></tr>';
+        var action = s.status === 'pending'
+          ? '<button class="btn-cancel-session" data-cancel-session="' + s.id + '" data-ct="' + historyCt + '" title="Cancelar link">Cancelar</button>'
+          : '';
+        html += '<tr><td><span class="badge ' + badge + '">' + label + '</span></td><td>' + new Date(s.created_at).toLocaleString('pt-BR') + '</td><td>' + dur + '</td><td>' + action + '</td></tr>';
       });
       html += '</tbody></table>';
       panel.innerHTML = html;
@@ -528,6 +539,25 @@ document.addEventListener('click', async function(e) {
       var data = await r.json();
       if (data.success) { showToast('Tipo deletado!'); location.reload(); }
       else { showToast('Erro ao deletar'); }
+    }
+  }
+
+  if (cancelSession) {
+    if (confirm('Cancelar este link? O lead não poderá mais usá-lo, mas o histórico é mantido.')) {
+      var ctId = e.target.getAttribute('data-ct');
+      var r = await fetch('/links/session/' + cancelSession + '/cancel', { method: 'POST' });
+      var data = await r.json();
+      if (data.success) {
+        showToast('Link cancelado!');
+        loadMonitor(ctId);
+        var historyPanel = document.getElementById('history-' + ctId);
+        if (historyPanel && historyPanel.style.display !== 'none') {
+          historyPanel.style.display = 'none';
+          document.querySelector('[data-history-ct="' + ctId + '"]').click();
+        }
+      } else {
+        showToast('Erro: ' + (data.error || 'Tente novamente'));
+      }
     }
   }
 });

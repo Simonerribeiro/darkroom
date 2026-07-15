@@ -37,7 +37,7 @@ router.get('/:slug/:token', async (req, res) => {
     );
     const session = sessionResult.rows[0];
     if (!session) return res.send(BLANK);
-    if (session.status === 'ended' || session.status === 'active') {
+    if (session.status === 'ended' || session.status === 'active' || session.status === 'cancelled') {
       return res.render('call-blocked', { hostName: model.name });
     }
     const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
@@ -63,7 +63,7 @@ router.post('/:slug/:token/accept', async (req, res) => {
       [token, callTypeId]
     );
     const session = sessionResult.rows[0];
-    if (!session || session.status === 'ended' || session.status === 'active') return res.json({ success: false, blocked: true });
+    if (!session || session.status === 'ended' || session.status === 'active' || session.status === 'cancelled') return res.json({ success: false, blocked: true });
     const callTypeResult = await db('SELECT * FROM call_types WHERE id = $1', [callTypeId]);
     const callType = callTypeResult.rows[0];
     const modelResult = await db('SELECT * FROM models WHERE id = $1', [parts[0]]);

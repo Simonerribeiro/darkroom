@@ -222,4 +222,32 @@ router.post('/share/:callTypeId', requireAuth, async (req, res) => {
   }
 });
 
+// Cancela uma sessão pendente (link gerado que o lead nunca abriu).
+// Não deleta a linha do banco: apenas marca status='cancelled', preservando o histórico.
+router.post('/session/:id/cancel', requireAuth, async (req, res) => {
+  try {
+    const result = await db(
+      `UPDATE sessions_calls
+       SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+         AND status = 'pending'
+         AND call_type_id IN (
+           SELECT ct.id FROM call_types ct
+           JOIN models m ON ct.model_id = m.id
+           WHERE m.user_id = $2
+         )
+       RETURNING call_type_id`,
+      [req.params.id, req.session.userId]
+    );
+    if (result.rows.length === 0) {
+      return res.json({ success: false, error: 'Sessão não encontrada ou já em andamento/finalizada' });
+    }
+    const io = req.app.get('io');
+    if (io) io.to('dashboard').emit('session-changed', { callTypeId: result.rows[0].call_type_id });
+    res.json({ success: true });
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
+});
+
 module.exports = router;

@@ -115,6 +115,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .badge-inactive { background: #1e1010; color: #666; border: 0.5px solid #333; }
 .badge-ended { background: #1e1010; color: #666; border: 0.5px solid #333; }
 .badge-pending { background: #1a1510; color: #c8961a; border: 0.5px solid #c8961a; }
+.badge-cancelled { background: #2a1111; color: #e05252; border: 0.5px solid #e05252; }
 
 /* MODAL */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; align-items: center; justify-content: center; padding: 1rem; }
@@ -163,3 +164,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .monitor-badge-online { background: #0a2318; color: #1d9e75; border: 0.5px solid #1d9e75; }
 .monitor-badge-waiting { background: #1a1510; color: #c8961a; border: 0.5px solid #c8961a; }
 .monitor-badge-ended { background: #1e1010; color: #666; border: 0.5px solid #333; }
+.monitor-badge-cancelled { background: #2a1111; color: #e05252; border: 0.5px solid #e05252; }
+
+.btn-cancel-session { background: transparent; border: 0.5px solid #e05252; color: #e05252; border-radius: 6px; padding: 3px 8px; font-size: 10px; font-weight: 600; cursor: pointer; }
+.btn-cancel-session:hover { background: #2a1111; }
