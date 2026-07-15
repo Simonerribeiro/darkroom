@@ -8,7 +8,7 @@ function encodeVideoUrl(url) {
   try {
     const parts = url.split('/');
     const filename = parts[parts.length - 1];
-    const encoded = encodeURIComponent(filename);
+    const encoded = encodeURIComponent(decodeURIComponent(filename));
     parts[parts.length - 1] = encoded;
     return parts.join('/');
   } catch(e) {
