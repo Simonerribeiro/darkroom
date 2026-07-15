@@ -3,21 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sala Encerrada</title>
+<title>Chamada Finalizada</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/css/call.css">
 </head>
 <body class="incoming-body">
 <div class="blocked-screen">
   <div class="blocked-icon">📵</div>
-  <h1>Sala Encerrada</h1>
-  <p>A chamada foi encerrada e o acesso foi bloqueado</p>
+  <h1>Chamada finalizada</h1>
+  <p>Essa chamada com <b><%= hostName %></b> já foi finalizada</p>
   <div class="blocked-info">
-    <p>⚠ Esta era uma sessão de acesso único. Uma vez que a chamada é encerrada ou você sai da sala, o acesso é bloqueado permanentemente para todos os participantes.</p>
-    <p><b>Esta conversa não pode mais ser acessada</b></p>
-    <p>Se precisar de uma nova conversa, entre em contato com a pessoa que compartilhou o link original.</p>
+    <p>⚠ Este link é de acesso único e não pode ser usado novamente.</p>
+    <p><b>Gostou e quer chamar de novo?</b></p>
+    <p>É só contratar novamente que um novo link é enviado pra você.</p>
   </div>
-  <button class="btn-close" onclick="window.close()">Fechar</button>
 </div>
 </body>
 </html>

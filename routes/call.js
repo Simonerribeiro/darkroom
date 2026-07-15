@@ -37,7 +37,9 @@ router.get('/:slug/:token', async (req, res) => {
     );
     const session = sessionResult.rows[0];
     if (!session) return res.send(BLANK);
-    if (session.status === 'ended' || session.status === 'active') return res.send(BLANK);
+    if (session.status === 'ended' || session.status === 'active') {
+      return res.render('call-blocked', { hostName: model.name });
+    }
     const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
     res.render('call-incoming', {
       link: { host_name: model.name, slug, video_url: encodeVideoUrl(callType.video_url) },
