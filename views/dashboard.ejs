@@ -313,17 +313,16 @@ document.getElementById('video-input-edit-ct').addEventListener('change', functi
   if (this.files[0]) document.getElementById('upload-label-edit-ct').textContent = '✓ ' + this.files[0].name;
 });
 
+// Envia o arquivo de vídeo direto para /links/presign via multipart/form-data.
+// O backend recebe o arquivo (multer), converte para MP4 (ffmpeg) e já faz o
+// upload para o R2, devolvendo a URL pública pronta — não há mais um PUT
+// separado para uma signed URL.
 async function uploadVideo(file, btnEl, labelEl) {
-  if (btnEl) btnEl.textContent = 'Preparando...';
-  if (labelEl) labelEl.textContent = 'Preparando...';
+  if (btnEl) btnEl.textContent = 'Enviando...';
+  if (labelEl) labelEl.textContent = 'Enviando vídeo...';
 
-  var presignRes = await fetch('/links/presign', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filename: file.name, contentType: file.type })
-  });
-  var presignData = await presignRes.json();
-  if (!presignData.success) throw new Error(presignData.error || 'Erro ao gerar URL');
+  var formData = new FormData();
+  formData.append('video', file);
 
   return new Promise(function(resolve, reject) {
     var xhr = new XMLHttpRequest();
@@ -335,16 +334,24 @@ async function uploadVideo(file, btnEl, labelEl) {
       }
     });
     xhr.addEventListener('load', function() {
-      if (xhr.status === 200 || xhr.status === 201) {
-        resolve({ url: presignData.publicUrl, public_id: presignData.key });
+      var data;
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch (parseErr) {
+        reject(new Error('Resposta inválida do servidor'));
+        return;
+      }
+      if (xhr.status >= 200 && xhr.status < 300 && data.success) {
+        if (btnEl) btnEl.textContent = 'Convertendo vídeo...';
+        if (labelEl) labelEl.textContent = 'Convertendo vídeo...';
+        resolve({ url: data.publicUrl, public_id: data.key });
       } else {
-        reject(new Error('Erro no upload: ' + xhr.status));
+        reject(new Error(data.error || ('Erro no upload: ' + xhr.status)));
       }
     });
     xhr.addEventListener('error', function() { reject(new Error('Falha de rede')); });
-    xhr.open('PUT', presignData.signedUrl);
-    xhr.setRequestHeader('Content-Type', file.type);
-    xhr.send(file);
+    xhr.open('POST', '/links/presign');
+    xhr.send(formData);
   });
 }
 
