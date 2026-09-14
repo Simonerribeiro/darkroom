@@ -56,11 +56,13 @@ const authRoutes = require('./routes/auth');
 const dashRoutes = require('./routes/dashboard');
 const linkRoutes = require('./routes/links');
 const callRoutes = require('./routes/call');
+const shortenerRoutes = require('./routes/shortener');
 
 app.use('/', authRoutes);
 app.use('/dashboard', dashRoutes);
 app.use('/links', linkRoutes);
 app.use('/go', callRoutes);
+app.use('/s', shortenerRoutes);
 
 // Healthcheck para o Railway saber que o app está respondendo
 app.get('/health', (req, res) => {
