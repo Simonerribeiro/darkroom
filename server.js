@@ -23,7 +23,7 @@ const sessionMiddleware = session({
     tableName: 'user_sessions',
     createTableIfMissing: true
   }),
-  secret: process.env.SESSION_SECRET || 'darkroom-secret-2024',
+  secret: process.env.SESSION_SECRET || 'chamada-exclusiva-secret-2024',
   resave: false,
   saveUninitialized: false,
   rolling: true,
@@ -163,5 +163,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Darkroom rodando na porta ${PORT}`);
+  console.log(`Chamada Exclusiva rodando na porta ${PORT}`);
 });

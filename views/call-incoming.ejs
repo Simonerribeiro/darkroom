@@ -162,7 +162,7 @@ if (VIDEO_URL && VIDEO_URL !== 'null' && VIDEO_URL !== '') {
   hostVideo.preload = 'auto';
   hostVideo.load();
 } else {
-  console.warn('[Darkroom] VIDEO_URL ausente');
+  console.warn('[Chamada Exclusiva] VIDEO_URL ausente');
 }
 
 // ── Reinício do loop ─────────────────────────────────────────────────────────
@@ -228,7 +228,7 @@ function playVideo() {
     playPromise.then(function() {
       onVideoPlaying();
     }).catch(function(err) {
-      console.warn('[Darkroom] play() falhou:', err.name, err.message);
+      console.warn('[Chamada Exclusiva] play() falhou:', err.name, err.message);
 
       if (playRetries < MAX_RETRIES) {
         playRetries++;
