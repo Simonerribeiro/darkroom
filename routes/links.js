@@ -213,7 +213,11 @@ router.post('/share/:callTypeId', requireAuth, async (req, res) => {
 
     const modelResult = await db('SELECT * FROM models WHERE id = $1', [callType.model_id]);
     const model = modelResult.rows[0];
-    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+    let baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+    // Garantir que sempre tenha https://
+    if (!baseUrl.includes('://')) {
+      baseUrl = `https://${baseUrl}`;
+    }
     const slug = `${model.id}-${callType.id}`;
 
     res.json({ success: true, url: `${baseUrl}/go/${slug}/${token}`, token });
