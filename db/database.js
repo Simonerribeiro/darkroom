@@ -66,6 +66,12 @@ async function initDB() {
       started_at TIMESTAMP,
       ended_at TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS shortened_links (
+      id SERIAL PRIMARY KEY,
+      short_code TEXT UNIQUE NOT NULL,
+      session_id INTEGER NOT NULL REFERENCES sessions_calls(id),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   console.log('PostgreSQL inicializado');
 }
