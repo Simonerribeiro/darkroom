@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query: db } = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
+const { createShortenedLink } = require('../utils/shortener');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const multer = require('multer');
 const ffmpeg = require('fluent-ffmpeg');
@@ -206,10 +207,14 @@ router.post('/share/:callTypeId', requireAuth, async (req, res) => {
     if (!callType) return res.json({ success: false, error: 'Tipo de chamada inativo' });
 
     const token = uuidv4();
-    await db(
-      "INSERT INTO sessions_calls (call_type_id, session_token, status) VALUES ($1, $2, 'pending')",
+    const sessionResult = await db(
+      "INSERT INTO sessions_calls (call_type_id, session_token, status) VALUES ($1, $2, 'pending') RETURNING id",
       [callType.id, token]
     );
+    const sessionId = sessionResult.rows[0].id;
+
+    // Criar link encurtado
+    const shortCode = await createShortenedLink(sessionId);
 
     const modelResult = await db('SELECT * FROM models WHERE id = $1', [callType.model_id]);
     const model = modelResult.rows[0];
@@ -218,9 +223,9 @@ router.post('/share/:callTypeId', requireAuth, async (req, res) => {
     if (!baseUrl.includes('://')) {
       baseUrl = `https://${baseUrl}`;
     }
-    const slug = `${model.id}-${callType.id}`;
 
-    res.json({ success: true, url: `${baseUrl}/go/${slug}/${token}`, token });
+    // Retornar URL encurtada ao invés da URL longa
+    res.json({ success: true, url: `${baseUrl}/s/${shortCode}`, token });
   } catch (e) {
     res.json({ success: false, error: e.message });
   }
