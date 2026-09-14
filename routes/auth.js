@@ -14,6 +14,17 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.get('/login', async (req, res) => {
+  if (req.session.userId) return res.redirect('/dashboard');
+  try {
+    const result = await db('SELECT COUNT(*) as count FROM users');
+    if (parseInt(result.rows[0].count) === 0) return res.redirect('/setup');
+    res.render('login', { error: null });
+  } catch(e) {
+    res.redirect('/setup');
+  }
+});
+
 router.get('/setup', async (req, res) => {
   try {
     const result = await db('SELECT COUNT(*) as count FROM users');
